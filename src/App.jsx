@@ -1,421 +1,569 @@
 import { useState, useEffect, useCallback } from "react";
 
-const SUPA_URL = "https://gxhdxbabjqmyldbctwoy.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4aGR4YmFianFteWxkYmN0d295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNTcyOTMsImV4cCI6MjA5NTYzMzI5M30.xq_HSa1s1qjECPvC9lpH0ikjGnkZFoJeYzF4i_epr6Y";
-const H = { "apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/json","Prefer":"return=representation" };
+const SB = "https://gxhdxbabjqmyldbctwoy.supabase.co";
+const SK = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4aGR4YmFianFteWxkYmN0d295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNTcyOTMsImV4cCI6MjA5NTYzMzI5M30.xq_HSa1s1qjECPvC9lpH0ikjGnkZFoJeYzF4i_epr6Y";
+const H = { "apikey": SK, "Authorization": `Bearer ${SK}`, "Content-Type": "application/json", "Prefer": "return=representation" };
 
 const db = {
-  get: async (t,q="")=>{ const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${q}`,{headers:H}); if(!r.ok)throw new Error(await r.text()); return r.json(); },
-  patch: async (t,f,b)=>{ const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${f}`,{method:"PATCH",headers:H,body:JSON.stringify(b)}); if(!r.ok)throw new Error(await r.text()); return r.json(); },
-  post: async (t,b)=>{ const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:"POST",headers:H,body:JSON.stringify(b)}); if(!r.ok)throw new Error(await r.text()); return r.json(); },
-  del: async (t,f)=>{ const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${f}`,{method:"DELETE",headers:H}); if(!r.ok)throw new Error(await r.text()); }
+  get: async (t, q = "") => { try { const r = await fetch(`${SB}/rest/v1/${t}?${q}`, { headers: H }); if (!r.ok) return []; return r.json(); } catch { return []; } },
+  post: async (t, b) => { try { const r = await fetch(`${SB}/rest/v1/${t}`, { method: "POST", headers: H, body: JSON.stringify(b) }); if (!r.ok) return null; return r.json(); } catch { return null; } },
+  patch: async (t, f, b) => { try { const r = await fetch(`${SB}/rest/v1/${t}?${f}`, { method: "PATCH", headers: H, body: JSON.stringify(b) }); if (!r.ok) return null; return r.json(); } catch { return null; } },
 };
 
-const $$ = n=>`RD$${new Intl.NumberFormat("es-DO",{minimumFractionDigits:0}).format(Math.abs(n||0))}`;
-const pct = (a,b)=>b>0?Math.min(100,(a/b)*100):0;
-const catColor = {hogar:"#4A9AE8",deuda:"#E84A4A",ahorro:"#4AE8A0",personal:"#E8C44A",ccd:"#A04AE8"};
-const catIcon  = {hogar:"🏠",deuda:"💳",ahorro:"💰",personal:"💄",ccd:"🏢"};
-const MESES    = ["2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"];
-const MES_L    = {"2026-06":"Junio","2026-07":"Julio","2026-08":"Agosto","2026-09":"Septiembre","2026-10":"Octubre","2026-11":"Noviembre","2026-12":"Diciembre"};
+// ── Formatters ─────────────────────────────────────────────────────────
+const D = n => `RD$${new Intl.NumberFormat("es-DO").format(Math.round(Math.abs(n || 0)))}`;
+const U = n => `$${Math.abs(n || 0).toFixed(2)}`;
+const pct = (a, b) => b > 0 ? Math.min(100, (a / b) * 100) : 0;
+const TC = 61.4;
 
-const Card=({children,style={}})=>(<div style={{background:"#0D1117",border:"1px solid #1E2530",borderRadius:16,padding:"16px 18px",...style}}>{children}</div>);
-const Pill=({color,children,sm})=>(<span style={{background:color+"22",color,border:`1px solid ${color}44`,borderRadius:99,padding:sm?"2px 8px":"4px 12px",fontSize:sm?10:12,fontWeight:600,whiteSpace:"nowrap"}}>{children}</span>);
-const BarG=({gastado,asignado,h=8})=>{const p=pct(gastado,asignado);const c=p>=100?"#E84A4A":p>=80?"#E8924A":p>=50?"#E8C44A":"#4AE8A0";return(<div style={{background:"#1A2030",borderRadius:99,height:h,overflow:"hidden"}}><div style={{width:`${p}%`,height:"100%",background:c,borderRadius:99,transition:"width .4s ease"}}/></div>);};
+// ── Estado inicial ─────────────────────────────────────────────────────
+const INIT = {
+  tc: 61.4,
+  mes: "Septiembre",
+  // Fuentes de ingreso
+  fuentes: [
+    { id: "eted1", nombre: "ETED 1°", color: "#2DD4BF", monto: 110000, credito: 15335, nota: "Crédito COOPETED incluido" },
+    { id: "mem",   nombre: "MEM",    color: "#60A5FA", monto: 61200,  credito: 0,     nota: "" },
+    { id: "cne",   nombre: "CNE",    color: "#F97316", monto: 140000, credito: 0,     nota: "" },
+    { id: "eted2", nombre: "ETED 2°",color: "#A78BFA", monto: 90000,  credito: 0,     nota: "" },
+    { id: "fs",    nombre: "Cliente FS", color: "#34D399", monto: 120000, credito: 0, nota: "Irregular — separado del balance fijo" },
+  ],
+  // Sobres por fuente
+  sobres: [
+    // ETED 1° — 94,665
+    { id: "s1",  fuente: "eted1", concepto: "Colegio",          categoria: "educacion", monto: 27500 },
+    { id: "s2",  fuente: "eted1", concepto: "Extra (alquiler)", categoria: "vivienda",  monto: 36600 },
+    { id: "s3",  fuente: "eted1", concepto: "Social",           categoria: "social",    monto: 8000  },
+    { id: "s4",  fuente: "eted1", concepto: "Salud",            categoria: "salud",     monto: 10000 },
+    { id: "s5",  fuente: "eted1", concepto: "Extracredito",     categoria: "deuda",     monto: 2500  },
+    { id: "s6",  fuente: "eted1", concepto: "Reservas",         categoria: "ahorro",    monto: 10000 },
+    // ETED 1° + COOPETED → Hipoteca
+    { id: "s7",  fuente: "eted1", concepto: "Pago hipotecario", categoria: "vivienda",  monto: 170465 },
+    // MEM + CNE → resto hogar
+    { id: "s8",  fuente: "cne",   concepto: "Alimentación",     categoria: "alimentacion", monto: 13500 },
+    { id: "s9",  fuente: "cne",   concepto: "Mantenimiento apto",categoria: "vivienda",  monto: 17045 },
+    // ETED 2°
+    { id: "s10", fuente: "eted2", concepto: "Alimentación 1",   categoria: "alimentacion", monto: 18500 },
+    { id: "s11", fuente: "eted2", concepto: "Electricidad",     categoria: "servicios", monto: 12000 },
+    { id: "s12", fuente: "eted2", concepto: "Alimentación 2",   categoria: "alimentacion", monto: 8000  },
+    { id: "s13", fuente: "eted2", concepto: "Yeli",             categoria: "hogar",     monto: 17000 },
+    { id: "s14", fuente: "eted2", concepto: "Valentina",        categoria: "hogar",     monto: 6000  },
+    { id: "s15", fuente: "eted2", concepto: "LUMURI Recrea",    categoria: "social",    monto: 10000 },
+  ],
+  // Tarjetas
+  tarjetas: [
+    { id: "edesur",     nombre: "EDESUR BHD Master",  color: "#EF4444", saldo: 0,     presup: 12000, cashback: 0.05, notas: "Cashback electricidad" },
+    { id: "visapremia", nombre: "Visa Premia BHD",    color: "#F97316", saldo: 88421, presup: 21500, cashback: 0.05, notas: "Cashback mercado" },
+    { id: "bravo",      nombre: "Bravo BSC Visa",     color: "#A78BFA", saldo: 45323, presup: 46000, cashback: 0.07, notas: "Cashback Bravo/Uber/UberEats" },
+    { id: "banres",     nombre: "Banreservas MC",     color: "#60A5FA", saldo: 64203, presup: 30500, cashback: 0,    notas: "Float corriente" },
+    { id: "promerica",  nombre: "Promerica Visa Gold",color: "#34D399", saldo: 0,     presup: 0,     cashback: 0,    notas: "Liquidada ✅" },
+  ],
+  extracredito: { saldo: 45077, abono: 2500 },
+  // USD
+  usd: {
+    ingresos: 1000,
+    streaming: 24.97,
+    netflix: 17.98,
+    hbo: 0,
+    appletv: 6.99,
+    ia: 54.28,
+    google: 4.99,
+    chatgpt: 20,
+    claude: 20,
+    instagram: 9.29,
+    subtotal_gastos: 79.25,
+  },
+};
 
-function SobreCard({sobre,onGasto,onEdit}){
-  const disp=Number(sobre.monto_asignado)-Number(sobre.monto_gastado);
-  const p=pct(Number(sobre.monto_gastado),Number(sobre.monto_asignado));
-  const agotado=disp<=0;
-  return(
-    <div style={{background:agotado?"#1A0D0D":"#0D1117",border:`1px solid ${agotado?"#E84A4A44":sobre.fuente_color+"33"}`,borderRadius:14,padding:"14px 16px",borderLeft:`3px solid ${agotado?"#E84A4A":sobre.fuente_color}`}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-        <div style={{flex:1}}>
-          <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
-            <span style={{fontSize:14,fontWeight:700,color:"#F0F4F8"}}>{sobre.nombre}</span>
-            {sobre.tarjeta_id&&<Pill color={sobre.fuente_color} sm>{sobre.tarjeta_id.toUpperCase()}</Pill>}
+const CATS = {
+  vivienda:     { icon: "🏠", label: "Vivienda",      color: "#EF4444" },
+  educacion:    { icon: "📚", label: "Educación",      color: "#8B5CF6" },
+  alimentacion: { icon: "🍽️",  label: "Alimentación",  color: "#10B981" },
+  hogar:        { icon: "🏡", label: "Personal hogar", color: "#F59E0B" },
+  servicios:    { icon: "🔌", label: "Servicios",      color: "#6366F1" },
+  salud:        { icon: "💊", label: "Salud",          color: "#EC4899" },
+  social:       { icon: "🎉", label: "Social",         color: "#14B8A6" },
+  deuda:        { icon: "💳", label: "Deuda",          color: "#EF4444" },
+  ahorro:       { icon: "💰", label: "Ahorro",         color: "#22C55E" },
+};
+
+const MESES_L = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+// ── Theme ──────────────────────────────────────────────────────────────
+const T = { bg: "#09090B", surf: "#18181B", bord: "#27272A", text: "#FAFAFA", muted: "#71717A", sub: "#3F3F46" };
+
+// ── Micro components ───────────────────────────────────────────────────
+const Bar = ({ v, max, color, h = 6 }) => (
+  <div style={{ background: T.sub, borderRadius: 99, height: h, overflow: "hidden" }}>
+    <div style={{ width: `${pct(v, max)}%`, height: "100%", background: color, borderRadius: 99, transition: "width .4s" }} />
+  </div>
+);
+const Chip = ({ color, children, sm }) => (
+  <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: sm ? "1px 7px" : "3px 10px", fontSize: sm ? 10 : 11, fontWeight: 600, whiteSpace: "nowrap" }}>{children}</span>
+);
+const Card = ({ children, style = {}, accent }) => (
+  <div style={{ background: T.surf, border: `1px solid ${T.bord}`, borderRadius: 14, padding: 16, borderLeft: accent ? `3px solid ${accent}` : undefined, ...style }}>{children}</div>
+);
+const Num = ({ children, style = {} }) => (
+  <span style={{ fontFamily: "monospace", ...style }}>{children}</span>
+);
+const Label = ({ children }) => (
+  <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>{children}</div>
+);
+
+// ── Edit field ─────────────────────────────────────────────────────────
+const EditNum = ({ value, onChange, color = T.text, prefix = "RD$", style = {} }) => {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  if (editing) return (
+    <input type="number" value={val} autoFocus
+      onChange={e => setVal(e.target.value)}
+      onBlur={() => { onChange(parseFloat(val) || 0); setEditing(false); }}
+      onKeyDown={e => { if (e.key === "Enter") { onChange(parseFloat(val) || 0); setEditing(false); } }}
+      style={{ background: T.sub, border: `1px solid ${color}`, borderRadius: 6, padding: "3px 8px", color, fontFamily: "monospace", fontSize: 14, width: 120, outline: "none", ...style }} />
+  );
+  return (
+    <span onClick={() => { setVal(value); setEditing(true); }} style={{ fontFamily: "monospace", color, cursor: "text", borderBottom: `1px dashed ${color}44`, ...style }}>
+      {prefix}{new Intl.NumberFormat("es-DO").format(Math.round(value))}
+    </span>
+  );
+};
+
+// ── MAIN ───────────────────────────────────────────────────────────────
+export default function App() {
+  const [data, setData] = useState(INIT);
+  const [tab, setTab] = useState("resumen");
+  const [saved, setSaved] = useState(false);
+
+  // Cargar datos de Supabase al inicio
+  useEffect(() => {
+    db.get("panel_raniero", "order=id.desc&limit=1").then(rows => {
+      if (rows && rows.length > 0 && rows[0].datos) {
+        try { setData(JSON.parse(rows[0].datos)); } catch {}
+      }
+    });
+  }, []);
+
+  const save = useCallback(async (newData) => {
+    setData(newData);
+    await db.post("panel_raniero", { datos: JSON.stringify(newData), updated_at: new Date().toISOString() });
+    setSaved(true); setTimeout(() => setSaved(false), 2000);
+  }, []);
+
+  const upd = (path, val) => {
+    const clone = JSON.parse(JSON.stringify(data));
+    const keys = path.split(".");
+    let obj = clone;
+    for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]];
+    obj[keys[keys.length - 1]] = val;
+    save(clone);
+  };
+
+  const updSobre = (id, field, val) => {
+    const clone = JSON.parse(JSON.stringify(data));
+    const s = clone.sobres.find(s => s.id === id);
+    if (s) s[field] = val;
+    save(clone);
+  };
+
+  const updTarjeta = (id, field, val) => {
+    const clone = JSON.parse(JSON.stringify(data));
+    const t = clone.tarjetas.find(t => t.id === id);
+    if (t) t[field] = val;
+    save(clone);
+  };
+
+  const updFuente = (id, field, val) => {
+    const clone = JSON.parse(JSON.stringify(data));
+    const f = clone.fuentes.find(f => f.id === id);
+    if (f) f[field] = val;
+    save(clone);
+  };
+
+  // ── Cálculos derivados ───────────────────────────────────────────────
+  const ingresoFijo = data.fuentes.filter(f => f.id !== "fs").reduce((s, f) => s + f.monto + f.credito, 0);
+  const ingresoTotal = data.fuentes.reduce((s, f) => s + f.monto + f.credito, 0);
+  const totalSobres = data.sobres.reduce((s, x) => s + x.monto, 0);
+  const balanceFijo = ingresoFijo - totalSobres;
+  const balanceTotal = ingresoTotal - totalSobres;
+
+  // Por categoría
+  const porCat = Object.entries(CATS).map(([id, meta]) => ({
+    id, ...meta,
+    total: data.sobres.filter(s => s.categoria === id).reduce((a, s) => a + s.monto, 0),
+  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+
+  // Por fuente
+  const porFuente = data.fuentes.map(f => ({
+    ...f,
+    ingreso_neto: f.monto + f.credito,
+    gastado: data.sobres.filter(s => s.fuente === f.id).reduce((a, s) => a + s.monto, 0),
+  }));
+
+  // Tarjetas
+  const totalDeuda = data.tarjetas.reduce((s, t) => s + t.saldo, 0) + data.extracredito.saldo;
+  const totalCashback = data.tarjetas.reduce((s, t) => s + (t.saldo * t.cashback), 0);
+
+  // USD
+  const saldoUSD = data.usd.ingresos - data.usd.subtotal_gastos;
+  const saldoUSD_DOP = saldoUSD * data.tc;
+
+  // Hipoteca %
+  const hipotecaMonto = data.sobres.find(s => s.id === "s7")?.monto || 170465;
+  const pctHipFijo = pct(hipotecaMonto, ingresoFijo);
+  const pctHipTotal = pct(hipotecaMonto, ingresoTotal);
+
+  const TABS = [
+    { id: "resumen",  l: "📊 Resumen"  },
+    { id: "sobres",   l: "💼 Sobres"   },
+    { id: "tarjetas", l: "💳 Tarjetas" },
+    { id: "usd",      l: "$ USD"       },
+    { id: "editar",   l: "⚙️ Editar"   },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'Inter',system-ui,sans-serif", color: T.text, maxWidth: 640, margin: "0 auto" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box;margin:0;padding:0}input,select{outline:none}::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:${T.sub};border-radius:2px}button:active{opacity:.85;transform:scale(.98)}`}</style>
+
+      {/* Header */}
+      <div style={{ background: T.surf, borderBottom: `1px solid ${T.bord}`, padding: "14px 16px", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>Raniero Cassoni</div>
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 1, fontFamily: "monospace" }}>
+              {data.mes} 2026 · TC RD${data.tc}
+            </div>
           </div>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <Pill color={sobre.fuente_color} sm>{sobre.fuente}</Pill>
-            <Pill color={catColor[sobre.categoria]||"#7A8899"} sm>{catIcon[sobre.categoria]} {sobre.categoria}</Pill>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {saved && <Chip color="#22C55E">✓ Guardado</Chip>}
+            <Chip color={balanceFijo >= 0 ? "#22C55E" : "#EF4444"}>
+              {balanceFijo >= 0 ? "+" : ""}{D(balanceFijo)}
+            </Chip>
           </div>
         </div>
-        <button onClick={()=>onEdit(sobre)} style={{background:"#1A2030",border:"1px solid #2A3545",borderRadius:8,color:"#7A8899",padding:"4px 8px",cursor:"pointer",fontSize:12,marginLeft:8}}>✏️</button>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
-        {[{l:"Asignado",v:$$(Number(sobre.monto_asignado)),c:"#8A9AAA"},{l:"Gastado",v:$$(Number(sobre.monto_gastado)),c:p>=80?"#E84A4A":"#E8924A"},{l:"Disponible",v:agotado?"AGOTADO":$$(disp),c:agotado?"#E84A4A":"#4AE8A0"}].map((x,i)=>(
-          <div key={i}><div style={{fontSize:10,color:"#5A6878",marginBottom:2}}>{x.l}</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:i===2?14:13,fontWeight:700,color:x.c}}>{x.v}</div></div>
+
+      {/* Tabs */}
+      <div style={{ background: T.surf, borderBottom: `1px solid ${T.bord}`, display: "flex", overflowX: "auto" }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: "none", background: "transparent", border: "none", borderBottom: tab === t.id ? "2px solid #fff" : "2px solid transparent", color: tab === t.id ? T.text : T.muted, padding: "10px 14px", cursor: "pointer", fontSize: 12, fontWeight: tab === t.id ? 600 : 400, whiteSpace: "nowrap" }}>{t.l}</button>
         ))}
       </div>
-      <BarG gastado={Number(sobre.monto_gastado)} asignado={Number(sobre.monto_asignado)}/>
-      <button onClick={()=>onGasto(sobre)} style={{width:"100%",marginTop:12,background:agotado?"#2A1010":sobre.fuente_color+"22",border:`1px solid ${agotado?"#E84A4A44":sobre.fuente_color+"55"}`,borderRadius:10,color:agotado?"#E84A4A":sobre.fuente_color,padding:"10px",cursor:"pointer",fontSize:13,fontWeight:600}}>
-        {agotado?"⚠️ Sobre agotado — registrar igualmente":"+ Registrar gasto de este sobre"}
-      </button>
-    </div>
-  );
-}
 
-function ModalGasto({sobre,onSave,onClose}){
-  const [monto,setMonto]=useState("");
-  const [desc,setDesc]=useState("");
-  const [metodo,setMetodo]=useState("tarjeta");
-  const [saving,setSaving]=useState(false);
-  const guardar=async()=>{ if(!monto||isNaN(Number(monto)))return; setSaving(true); await onSave(sobre,Number(monto),desc,metodo); setSaving(false); };
-  return(
-    <div style={{position:"fixed",inset:0,background:"#000C",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000}}>
-      <div style={{background:"#0D1117",borderRadius:"20px 20px 0 0",border:"1px solid #1E2530",padding:"24px 20px 36px",width:"100%",maxWidth:480,borderTop:`3px solid ${sobre.fuente_color}`}}>
-        <div style={{width:40,height:4,background:"#2A3545",borderRadius:99,margin:"0 auto 20px"}}/>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>{sobre.nombre}</div>
-        <div style={{fontSize:12,color:"#5A6878",marginBottom:20}}>Disponible: <span style={{color:"#4AE8A0",fontWeight:700}}>{$$(Math.max(0,Number(sobre.monto_asignado)-Number(sobre.monto_gastado)))}</span> · {sobre.fuente}</div>
-        <div style={{background:"#131920",border:"1px solid #2A3545",borderRadius:14,padding:"16px 18px",marginBottom:14,textAlign:"center"}}>
-          <div style={{fontSize:11,color:"#5A6878",marginBottom:6}}>MONTO (DOP)</div>
-          <input autoFocus type="number" inputMode="numeric" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0" style={{background:"transparent",border:"none",fontFamily:"'DM Mono',monospace",fontSize:40,fontWeight:700,color:sobre.fuente_color,textAlign:"center",width:"100%"}}/>
-        </div>
-        <input type="text" value={desc} onChange={e=>setDesc(e.target.value)} placeholder="¿En qué? (Super Nacional, Farmacia, Gasolina...)" style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:12,padding:"12px 14px",color:"#F0F4F8",fontSize:14,marginBottom:14}}/>
-        <div style={{display:"flex",gap:8,marginBottom:18}}>
-          {["tarjeta","efectivo","transferencia"].map(m=>(
-            <button key={m} onClick={()=>setMetodo(m)} style={{flex:1,background:metodo===m?sobre.fuente_color+"33":"#131920",border:`1px solid ${metodo===m?sobre.fuente_color:"#2A3545"}`,borderRadius:10,color:metodo===m?sobre.fuente_color:"#5A6878",padding:"8px 4px",cursor:"pointer",fontSize:11,fontWeight:600,textTransform:"capitalize"}}>{m}</button>
-          ))}
-        </div>
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={guardar} disabled={saving} style={{flex:2,background:sobre.fuente_color,border:"none",borderRadius:12,color:"#000",fontWeight:700,padding:"15px",cursor:"pointer",fontSize:16}}>{saving?"Guardando...":"✓ Registrar"}</button>
-          <button onClick={onClose} style={{flex:1,background:"#1A2030",border:"1px solid #2A3545",borderRadius:12,color:"#7A8899",padding:"15px",cursor:"pointer",fontSize:14}}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+      <div style={{ padding: 16 }}>
 
-function ModalEditSobre({sobre,onSave,onClose}){
-  const [v,setV]=useState({...sobre});
-  return(
-    <div style={{position:"fixed",inset:0,background:"#000C",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}}>
-      <Card style={{width:"100%",maxWidth:380}}>
-        <div style={{fontWeight:700,fontSize:16,marginBottom:20}}>Editar · {sobre.nombre}</div>
-        {[{k:"nombre",l:"Nombre",t:"text"},{k:"monto_asignado",l:"Monto asignado",t:"number"},{k:"monto_gastado",l:"Gastado (corrección)",t:"number"}].map(f=>(
-          <div key={f.k} style={{marginBottom:12}}>
-            <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>{f.l}</div>
-            <input type={f.t} value={v[f.k]||""} onChange={e=>setV({...v,[f.k]:f.t==="number"?parseFloat(e.target.value)||0:e.target.value})} style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px 12px",color:"#F0F4F8",fontSize:14}}/>
-          </div>
-        ))}
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>Categoría</div>
-          <select value={v.categoria} onChange={e=>setV({...v,categoria:e.target.value})} style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px 12px",color:"#F0F4F8",fontSize:13}}>
-            {Object.entries(catIcon).map(([k,ic])=><option key={k} value={k}>{ic} {k}</option>)}
-          </select>
-        </div>
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>onSave(v)} style={{flex:1,background:"#4A9AE8",border:"none",borderRadius:10,color:"#000",fontWeight:700,padding:12,cursor:"pointer",fontSize:14}}>Guardar</button>
-          <button onClick={onClose} style={{flex:1,background:"#1A2030",border:"1px solid #2A3545",borderRadius:10,color:"#7A8899",padding:12,cursor:"pointer",fontSize:14}}>Cancelar</button>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-export default function App(){
-  const [tab,setTab]=useState("sobres");
-  const [mes,setMes]=useState("2026-06");
-  const [quinc,setQuinc]=useState(1);
-  const [sobres,setSobres]=useState([]);
-  const [gastos,setGastos]=useState([]);
-  const [tarjetas,setTarj]=useState([]);
-  const [loading,setLoad]=useState(true);
-  const [error,setErr]=useState(null);
-  const [modalGasto,setModalGasto]=useState(null);
-  const [modalEdit,setModalEdit]=useState(null);
-  const [showAdd,setShowAdd]=useState(false);
-  const [saved,setSaved]=useState(false);
-  const [newS,setNewS]=useState({nombre:"",fuente:"ETED 1°",fuente_color:"#4AE8A0",tarjeta_id:"",monto_asignado:0,categoria:"hogar"});
-
-  const flash=()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);};
-
-  const load=useCallback(async()=>{
-    setLoad(true);setErr(null);
-    try{
-      const [s,g,t]=await Promise.all([db.get("sobres","order=quincena,orden"),db.get("gastos","order=created_at.desc&limit=100"),db.get("tarjetas","order=nombre")]);
-      setSobres(s);setGastos(g);setTarj(t);
-    }catch(e){setErr(e.message);}
-    setLoad(false);
-  },[]);
-
-  useEffect(()=>{load();},[load]);
-
-  const sf=sobres.filter(s=>s.mes===mes&&s.quincena===quinc);
-  const tA=sf.reduce((a,s)=>a+Number(s.monto_asignado),0);
-  const tG=sf.reduce((a,s)=>a+Number(s.monto_gastado),0);
-  const fuentes=[...new Set(sf.map(s=>s.fuente))];
-
-  const registrarGasto=async(sobre,monto,desc,metodo)=>{
-    const ng=Number(sobre.monto_gastado)+monto;
-    await db.patch("sobres",`id=eq.${sobre.id}`,{monto_gastado:ng,updated_at:new Date().toISOString()});
-    await db.post("gastos",{sobre_id:sobre.id,descripcion:desc||sobre.nombre,monto,metodo_pago:metodo,tarjeta_id:sobre.tarjeta_id||null,fecha:new Date().toISOString()});
-    if(sobre.tarjeta_id&&metodo==="tarjeta"){
-      const t=tarjetas.find(x=>x.id===sobre.tarjeta_id);
-      if(t)await db.patch("tarjetas",`id=eq.${t.id}`,{saldo:Number(t.saldo)+monto,updated_at:new Date().toISOString()});
-    }
-    setSobres(prev=>prev.map(s=>s.id===sobre.id?{...s,monto_gastado:ng}:s));
-    setModalGasto(null);flash();
-    const g=await db.get("gastos","order=created_at.desc&limit=100");
-    setGastos(g);
-  };
-
-  const editarSobre=async(v)=>{
-    await db.patch("sobres",`id=eq.${v.id}`,{nombre:v.nombre,monto_asignado:v.monto_asignado,monto_gastado:v.monto_gastado,categoria:v.categoria,updated_at:new Date().toISOString()});
-    setSobres(prev=>prev.map(s=>s.id===v.id?{...s,...v}:s));
-    setModalEdit(null);flash();
-  };
-
-  const agregarSobre=async()=>{
-    const [c]=await db.post("sobres",{...newS,mes,quincena:quinc,orden:sf.length+1});
-    setSobres(prev=>[...prev,c]);setShowAdd(false);
-    setNewS({nombre:"",fuente:"ETED 1°",fuente_color:"#4AE8A0",tarjeta_id:"",monto_asignado:0,categoria:"hogar"});
-    flash();
-  };
-
-  const TABS=[{id:"sobres",l:"💼 Sobres"},{id:"resumen",l:"📊 Mes"},{id:"historial",l:"📋 Historial"},{id:"tarjetas",l:"💳 Tarjetas"}];
-
-  if(error)return(<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#080C10",gap:16,padding:20}}><div style={{fontSize:32}}>⚠️</div><div style={{color:"#E84A4A",fontSize:13,textAlign:"center"}}>{error}</div><div style={{color:"#5A6878",fontSize:12,textAlign:"center",maxWidth:340}}>Ejecuta el SQL en Supabase primero, luego recarga.</div><button onClick={load} style={{background:"#4A9AE8",border:"none",borderRadius:10,color:"#000",padding:"10px 24px",cursor:"pointer",fontWeight:700}}>Reintentar</button></div>);
-
-  return(
-    <div style={{minHeight:"100vh",background:"#080C10",fontFamily:"'Inter',system-ui,sans-serif",color:"#F0F4F8",maxWidth:600,margin:"0 auto"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box;margin:0;padding:0}input,select{outline:none}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#2A3545;border-radius:2px}button:active{opacity:.8;transform:scale(.98)}`}</style>
-
-      {/* HEADER */}
-      <div style={{background:"#0A0F16",borderBottom:"1px solid #1A2030",padding:"14px 16px",position:"sticky",top:0,zIndex:100}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        {/* ══ RESUMEN ══════════════════════════════════════════════════ */}
+        {tab === "resumen" && (
           <div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:500}}>RANIERO · FINANZAS</div>
-            <div style={{fontSize:10,color:"#3A5A7A",marginTop:1,fontFamily:"'DM Mono',monospace"}}>{MES_L[mes]} · Q{quinc} · {new Date().toLocaleDateString("es-DO",{day:"numeric",month:"short"})}</div>
-          </div>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {saved&&<Pill color="#4AE8A0" sm>✓ Guardado</Pill>}
-            {loading&&<Pill color="#E8924A" sm>⟳</Pill>}
-            <button onClick={load} style={{background:"#1A2030",border:"1px solid #2A3545",borderRadius:8,color:"#7A8899",padding:"5px 9px",cursor:"pointer",fontSize:12}}>↻</button>
-          </div>
-        </div>
-        <div style={{display:"flex",gap:8}}>
-          <select value={mes} onChange={e=>setMes(e.target.value)} style={{flex:1,background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"8px 12px",color:"#F0F4F8",fontSize:13}}>
-            {MESES.map(m=><option key={m} value={m}>{MES_L[m]} 2026</option>)}
-          </select>
-          <div style={{display:"flex",gap:4,background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:3}}>
-            {[1,2].map(q=><button key={q} onClick={()=>setQuinc(q)} style={{background:quinc===q?"#2A3545":"transparent",border:"none",borderRadius:8,color:quinc===q?"#F0F4F8":"#5A6878",padding:"6px 16px",cursor:"pointer",fontSize:13,fontWeight:quinc===q?600:400}}>Q{q}</button>)}
-          </div>
-        </div>
-      </div>
-
-      {/* TABS */}
-      <div style={{background:"#0A0F16",borderBottom:"1px solid #1A2030",display:"flex"}}>
-        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,background:"transparent",border:"none",borderBottom:tab===t.id?"2px solid #4A9AE8":"2px solid transparent",color:tab===t.id?"#4A9AE8":"#5A6878",padding:"10px 4px",cursor:"pointer",fontSize:12,fontWeight:tab===t.id?600:400,whiteSpace:"nowrap"}}>{t.l}</button>)}
-      </div>
-
-      <div style={{padding:16}}>
-
-        {/* ═══ SOBRES ═══ */}
-        {tab==="sobres"&&(
-          <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-              {[{l:"Asignado",v:$$(tA),c:"#4A9AE8"},{l:"Gastado",v:$$(tG),c:tG>tA*0.9?"#E84A4A":"#E8924A"},{l:"Disponible",v:$$(tA-tG),c:tA-tG<0?"#E84A4A":"#4AE8A0"}].map((k,i)=>(
-                <Card key={i} style={{padding:"12px 14px"}}>
-                  <div style={{fontSize:10,color:"#5A6878",marginBottom:3}}>{k.l}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:k.c,lineHeight:1}}>{k.v}</div>
+            {/* KPIs */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              {[
+                { l: "Ingresos fijos", v: D(ingresoFijo), c: "#22C55E", sub: `+${D(data.fuentes.find(f=>f.id==="fs")?.monto||0)} FS` },
+                { l: "Comprometido", v: D(totalSobres), c: "#F97316", sub: `${pct(totalSobres,ingresoFijo).toFixed(0)}% del fijo` },
+                { l: "Balance fijo", v: D(Math.abs(balanceFijo)), c: balanceFijo >= 0 ? "#22C55E" : "#EF4444", sub: balanceFijo >= 0 ? "Positivo ✅" : "Déficit 🔴" },
+                { l: "Con Cliente FS", v: D(Math.abs(balanceTotal)), c: balanceTotal >= 0 ? "#2DD4BF" : "#EF4444", sub: balanceTotal >= 0 ? "Holgado" : "En rojo" },
+              ].map((k, i) => (
+                <Card key={i} style={{ padding: "14px 16px" }}>
+                  <Label>{k.l}</Label>
+                  <Num style={{ fontSize: 18, fontWeight: 700, color: k.c, display: "block", lineHeight: 1 }}>{k.v}</Num>
+                  <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>{k.sub}</div>
                 </Card>
               ))}
             </div>
-            {loading?(<div style={{textAlign:"center",color:"#3A4A5A",padding:"40px 0",fontSize:13}}>Cargando sobres...</div>):
-            sf.length===0?(<div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:32,marginBottom:12}}>💼</div><div style={{color:"#5A6878",fontSize:14,marginBottom:16}}>No hay sobres para {MES_L[mes]} Q{quinc}</div><button onClick={()=>setShowAdd(true)} style={{background:"#4A9AE833",border:"1px solid #4A9AE855",borderRadius:12,color:"#4A9AE8",padding:"10px 24px",cursor:"pointer",fontSize:14,fontWeight:600}}>+ Crear primer sobre</button></div>):(
-            <>
-              {fuentes.map(fuente=>{
-                const sFuente=sf.filter(s=>s.fuente===fuente);
-                const fA=sFuente.reduce((a,s)=>a+Number(s.monto_asignado),0);
-                const fG=sFuente.reduce((a,s)=>a+Number(s.monto_gastado),0);
-                const fC=sFuente[0]?.fuente_color||"#7A8899";
-                return(
-                  <div key={fuente} style={{marginBottom:20}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"8px 12px",background:fC+"11",borderRadius:10,border:`1px solid ${fC}33`}}>
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <div style={{width:10,height:10,borderRadius:99,background:fC}}/>
-                        <span style={{fontWeight:700,fontSize:14,color:fC}}>{fuente}</span>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:600,color:fC}}>{$$(fA)}</div>
-                        <div style={{fontSize:10,color:"#5A6878"}}>gastado {$$(fG)} · disp {$$(fA-fG)}</div>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {sFuente.map(s=><SobreCard key={s.id} sobre={s} onGasto={setModalGasto} onEdit={setModalEdit}/>)}
-                    </div>
-                  </div>
-                );
-              })}
-              <button onClick={()=>setShowAdd(true)} style={{width:"100%",background:"#131920",border:"1px dashed #2A3545",borderRadius:12,color:"#5A6878",padding:"12px",cursor:"pointer",fontSize:13,marginTop:8}}>+ Agregar sobre</button>
-            </>
-            )}
-          </div>
-        )}
 
-        {/* ═══ RESUMEN MES ═══ */}
-        {tab==="resumen"&&(
-          <div>
-            {[1,2].map(q=>{
-              const qs=sobres.filter(s=>s.mes===mes&&s.quincena===q);
-              if(!qs.length)return null;
-              const qa=qs.reduce((a,s)=>a+Number(s.monto_asignado),0);
-              const qg=qs.reduce((a,s)=>a+Number(s.monto_gastado),0);
-              return(
-                <Card key={q} style={{marginBottom:14}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                    <span style={{fontWeight:700,fontSize:15}}>Quincena {q}</span>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:qg>qa?"#E84A4A":"#4AE8A0"}}>{$$(qa-qg)} disp.</div>
-                      <div style={{fontSize:11,color:"#5A6878"}}>{$$(qg)} de {$$(qa)}</div>
-                    </div>
-                  </div>
-                  <BarG gastado={qg} asignado={qa} h={10}/>
-                  <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"#5A6878"}}><span>{pct(qg,qa).toFixed(0)}% ejecutado</span><span>Varianza: {$$(qa-qg)}</span></div>
-                  <div style={{marginTop:12}}>
-                    {Object.keys(catIcon).map(cat=>{
-                      const cs=qs.filter(s=>s.categoria===cat);
-                      if(!cs.length)return null;
-                      const ca=cs.reduce((a,s)=>a+Number(s.monto_asignado),0);
-                      const cg=cs.reduce((a,s)=>a+Number(s.monto_gastado),0);
-                      return(
-                        <div key={cat} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #141C24"}}>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:14}}>{catIcon[cat]}</span><span style={{fontSize:13,textTransform:"capitalize"}}>{cat}</span></div>
-                          <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                            <span style={{fontSize:12,color:"#5A6878"}}>{$$(ca)}</span>
-                            <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:600,color:cg>ca?"#E84A4A":"#4AE8A0"}}>{$$(cg)}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card>
-              );
-            })}
-            {/* Totales del mes */}
+            {/* Barra presupuesto */}
+            <Card style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Ejecución presupuesto</span>
+                <Num style={{ fontSize: 13, color: T.muted }}>{pct(totalSobres, ingresoFijo).toFixed(0)}%</Num>
+              </div>
+              <Bar v={totalSobres} max={ingresoFijo} color={totalSobres > ingresoFijo ? "#EF4444" : "#22C55E"} h={10} />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: T.muted }}>
+                <span>Comprometido: {D(totalSobres)}</span>
+                <span>Fijo: {D(ingresoFijo)}</span>
+              </div>
+            </Card>
+
+            {/* Hipoteca % */}
+            <Card style={{ marginBottom: 14, background: pctHipFijo > 40 ? "#EF444411" : T.surf, borderColor: pctHipFijo > 40 ? "#EF444444" : T.bord }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, alignItems: "center" }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>🏠 Hipoteca</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <Chip color={pctHipFijo > 40 ? "#EF4444" : "#22C55E"}>{pctHipFijo.toFixed(1)}% fijo</Chip>
+                  <Chip color="#2DD4BF">{pctHipTotal.toFixed(1)}% total</Chip>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  <Label>Cuota mensual</Label>
+                  <Num style={{ fontSize: 16, fontWeight: 700, color: "#EF4444" }}>{D(hipotecaMonto)}</Num>
+                </div>
+                <div>
+                  <Label>Meta % (límite sano)</Label>
+                  <Num style={{ fontSize: 16, fontWeight: 700, color: "#22C55E" }}>35%</Num>
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: T.muted, fontStyle: "italic" }}>
+                {pctHipFijo > 40 ? `🔴 ${(pctHipFijo - 35).toFixed(1)}pp por encima del límite — ok mientras deuda = 0` : "✅ Dentro del rango recomendado sobre ingreso total"}
+              </div>
+            </Card>
+
+            {/* Por categoría */}
             <Card>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Total {MES_L[mes]}</div>
-              {[1,2].flatMap(q=>{
-                const qs=sobres.filter(s=>s.mes===mes&&s.quincena===q);
-                return fuentes.length?[...new Set(qs.map(s=>s.fuente))].map(fuente=>{
-                  const fs=qs.filter(s=>s.fuente===fuente);
-                  const fa=fs.reduce((a,s)=>a+Number(s.monto_asignado),0);
-                  const fg=fs.reduce((a,s)=>a+Number(s.monto_gastado),0);
-                  const fc=fs[0]?.fuente_color||"#7A8899";
-                  return(<div key={`${q}-${fuente}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #141C24"}}>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{width:8,height:8,borderRadius:99,background:fc}}/><span style={{fontSize:13}}>{fuente} (Q{q})</span></div>
-                    <div style={{textAlign:"right"}}>
-                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:600,color:fg>fa?"#E84A4A":"#4AE8A0"}}>{$$(fg)}</span>
-                      <span style={{fontSize:11,color:"#5A6878"}}> / {$$(fa)}</span>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Distribución por categoría</div>
+              {porCat.map(cat => (
+                <div key={cat.id} style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "center" }}>
+                    <span style={{ fontSize: 13 }}>{cat.icon} {cat.label}</span>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <Num style={{ fontSize: 13, fontWeight: 600, color: cat.color }}>{D(cat.total)}</Num>
+                      <span style={{ fontSize: 11, color: T.muted }}>{pct(cat.total, totalSobres).toFixed(0)}%</span>
                     </div>
-                  </div>);
-                }):[];
-              })}
+                  </div>
+                  <Bar v={cat.total} max={totalSobres} color={cat.color} h={5} />
+                </div>
+              ))}
             </Card>
           </div>
         )}
 
-        {/* ═══ HISTORIAL ═══ */}
-        {tab==="historial"&&(
+        {/* ══ SOBRES ═══════════════════════════════════════════════════ */}
+        {tab === "sobres" && (
           <div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#5A6878",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:14}}>Últimos movimientos</div>
-            {gastos.length===0?(<div style={{textAlign:"center",color:"#3A4A5A",padding:"40px 0",fontSize:13}}>Sin gastos registrados aún</div>):
-            gastos.map(g=>{
-              const s=sobres.find(x=>x.id===g.sobre_id);
-              return(<div key={g.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 4px",borderBottom:"1px solid #141C24"}}>
-                <div style={{flex:1,marginRight:12}}>
-                  <div style={{fontSize:13,fontWeight:500}}>{g.descripcion}</div>
-                  <div style={{fontSize:11,color:"#5A6878",marginTop:2}}>
-                    {new Date(g.fecha).toLocaleDateString("es-DO",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
-                    {s&&<span style={{color:s.fuente_color||"#7A8899"}}> · {s.nombre}</span>}
-                    {" · "}{g.metodo_pago}
+            {data.fuentes.map(fuente => {
+              const sobre_f = data.sobres.filter(s => s.fuente === fuente.id);
+              const total_f = sobre_f.reduce((a, s) => a + s.monto, 0);
+              const ingreso_f = fuente.monto + fuente.credito;
+              const balance_f = ingreso_f - total_f;
+              return (
+                <div key={fuente.id} style={{ marginBottom: 18 }}>
+                  {/* Header fuente */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: fuente.color + "15", borderRadius: 10, border: `1px solid ${fuente.color}33`, marginBottom: 8 }}>
+                    <div>
+                      <span style={{ fontWeight: 700, color: fuente.color, fontSize: 14 }}>{fuente.nombre}</span>
+                      {fuente.credito > 0 && <span style={{ fontSize: 10, color: T.muted, marginLeft: 8 }}>+{D(fuente.credito)} crédito</span>}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <Num style={{ fontSize: 14, fontWeight: 700, color: fuente.color }}>{D(ingreso_f)}</Num>
+                      <div style={{ fontSize: 10, color: balance_f >= 0 ? "#22C55E" : "#EF4444" }}>saldo: {D(balance_f)}</div>
+                    </div>
+                  </div>
+
+                  {sobre_f.length === 0 ? (
+                    <div style={{ padding: "10px 12px", color: T.muted, fontSize: 12, fontStyle: "italic" }}>Sin sobres asignados</div>
+                  ) : sobre_f.map(s => {
+                    const cat = CATS[s.categoria];
+                    return (
+                      <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", background: T.surf, border: `1px solid ${T.bord}`, borderRadius: 8, marginBottom: 6 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1 }}>
+                          <span style={{ fontSize: 14 }}>{cat?.icon}</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{s.concepto}</div>
+                            <Chip color={cat?.color || "#888"} sm>{cat?.label}</Chip>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <EditNum value={s.monto} onChange={v => updSobre(s.id, "monto", v)} color={fuente.color} />
+                          <div style={{ fontSize: 10, color: T.muted }}>{pct(s.monto, ingreso_f).toFixed(1)}%</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Barra uso fuente */}
+                  <div style={{ marginTop: 6 }}>
+                    <Bar v={total_f} max={ingreso_f} color={total_f > ingreso_f ? "#EF4444" : fuente.color} h={4} />
                   </div>
                 </div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:"#E84A4A",whiteSpace:"nowrap"}}>{$$(Number(g.monto))}</div>
-              </div>);
+              );
             })}
           </div>
         )}
 
-        {/* ═══ TARJETAS ═══ */}
-        {tab==="tarjetas"&&(
+        {/* ══ TARJETAS ═════════════════════════════════════════════════ */}
+        {tab === "tarjetas" && (
           <div>
-            {tarjetas.map(t=>{
-              const p=pct(Number(t.saldo),Number(t.limite));
-              const c=p>=80?"#E84A4A":p>=60?"#E8924A":"#4AE8A0";
-              return(<Card key={t.id} style={{marginBottom:12,borderLeft:`3px solid ${t.color}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-                  <div><div style={{fontWeight:700,fontSize:15}}>{t.nombre}</div><div style={{fontSize:11,color:"#5A6878",marginTop:2}}>{t.nota}</div></div>
-                  <Pill color={t.color} sm>{t.cashback}% CB</Pill>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:10}}>
-                  {[{l:"Saldo",v:$$(Number(t.saldo)),c:"#E84A4A"},{l:"Disponible",v:$$(Number(t.limite)-Number(t.saldo)),c:"#4AE8A0"},{l:"Mínimo",v:$$(Number(t.minimo)),c:"#E8924A"}].map((x,i)=>(
-                    <div key={i}><div style={{fontSize:10,color:"#5A6878"}}>{x.l}</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,color:x.c}}>{x.v}</div></div>
-                  ))}
-                </div>
-                <BarG gastado={Number(t.saldo)} asignado={Number(t.limite)} h={6}/>
-                <div style={{fontSize:10,color:c,textAlign:"right",marginTop:3}}>{p.toFixed(0)}% usado</div>
-              </Card>);
+            {/* KPI deuda */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              <Card style={{ padding: "14px 16px" }}>
+                <Label>Deuda total</Label>
+                <Num style={{ fontSize: 20, fontWeight: 700, color: "#EF4444", display: "block" }}>{D(totalDeuda)}</Num>
+                <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>incl. Extracredito</div>
+              </Card>
+              <Card style={{ padding: "14px 16px" }}>
+                <Label>Cashback estimado</Label>
+                <Num style={{ fontSize: 20, fontWeight: 700, color: "#22C55E", display: "block" }}>{D(totalCashback)}</Num>
+                <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>sobre saldos actuales</div>
+              </Card>
+            </div>
+
+            {data.tarjetas.map(t => {
+              const cb = t.saldo * t.cashback;
+              const usoP = pct(t.saldo, t.presup > 0 ? t.presup + t.saldo : t.saldo || 1);
+              return (
+                <Card key={t.id} style={{ marginBottom: 10 }} accent={t.color}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: t.color }}>{t.nombre}</div>
+                      <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{t.notas}</div>
+                    </div>
+                    {t.cashback > 0 && <Chip color={t.color}>{(t.cashback * 100).toFixed(0)}% CB</Chip>}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                    <div>
+                      <Label>Saldo</Label>
+                      <EditNum value={t.saldo} onChange={v => updTarjeta(t.id, "saldo", v)} color="#EF4444" />
+                    </div>
+                    <div>
+                      <Label>Presupuesto</Label>
+                      <EditNum value={t.presup} onChange={v => updTarjeta(t.id, "presup", v)} color={t.color} />
+                    </div>
+                    <div>
+                      <Label>Cashback</Label>
+                      <Num style={{ color: "#22C55E", fontSize: 14, fontWeight: 700 }}>{D(cb)}</Num>
+                    </div>
+                  </div>
+                  {t.saldo > 0 && <Bar v={t.saldo} max={t.saldo + t.presup} color={t.color} h={5} />}
+                </Card>
+              );
             })}
+
+            {/* Extracredito */}
+            <Card accent="#6366F1">
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#6366F1", marginBottom: 10 }}>Extracredito</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <Label>Saldo</Label>
+                  <EditNum value={data.extracredito.saldo} onChange={v => upd("extracredito.saldo", v)} color="#EF4444" />
+                </div>
+                <div>
+                  <Label>Abono mensual</Label>
+                  <EditNum value={data.extracredito.abono} onChange={v => upd("extracredito.abono", v)} color="#6366F1" />
+                </div>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: T.muted }}>
+                Meses restantes: ~{Math.ceil(data.extracredito.saldo / data.extracredito.abono)}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ══ USD ══════════════════════════════════════════════════════ */}
+        {tab === "usd" && (
+          <div>
+            <Card style={{ marginBottom: 14, borderTop: `2px solid #F59E0B` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>Flujo en USD</div>
+                  <div style={{ fontSize: 11, color: T.muted }}>TC: <EditNum value={data.tc} onChange={v => upd("tc", v)} color="#F59E0B" prefix="" /> DOP/USD</div>
+                </div>
+                <Chip color={saldoUSD >= 0 ? "#22C55E" : "#EF4444"}>
+                  {saldoUSD >= 0 ? "+" : ""}{U(saldoUSD)} saldo
+                </Chip>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <Label>Ingreso en USD</Label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13 }}>Cliente / ingresos</span>
+                  <EditNum value={data.usd.ingresos} onChange={v => upd("usd.ingresos", v)} color="#22C55E" prefix="$" />
+                </div>
+              </div>
+
+              <div style={{ borderTop: `1px solid ${T.bord}`, paddingTop: 14 }}>
+                <Label>Suscripciones y servicios</Label>
+                {[
+                  ["Streaming (total)", "streaming"],
+                  ["Netflix", "netflix"],
+                  ["HBO Max", "hbo"],
+                  ["Apple TV", "appletv"],
+                  ["Servicios IA", "ia"],
+                  ["Google", "google"],
+                  ["ChatGPT", "chatgpt"],
+                  ["Claude", "claude"],
+                  ["Instagram", "instagram"],
+                ].map(([label, key]) => (
+                  <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${T.bord}` }}>
+                    <span style={{ fontSize: 13, color: T.muted }}>{label}</span>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <EditNum value={data.usd[key]} onChange={v => upd(`usd.${key}`, v)} color="#F97316" prefix="$" />
+                      <span style={{ fontSize: 11, color: T.muted }}>{D(data.usd[key] * data.tc)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[
+                  { l: "Total gastos $", v: U(data.usd.subtotal_gastos), c: "#EF4444" },
+                  { l: "Saldo USD", v: U(saldoUSD), c: saldoUSD >= 0 ? "#22C55E" : "#EF4444" },
+                  { l: "Equiv. DOP", v: D(saldoUSD_DOP), c: "#2DD4BF" },
+                ].map((x, i) => (
+                  <div key={i} style={{ textAlign: "center", padding: "10px 8px", background: T.bg, borderRadius: 10 }}>
+                    <Label>{x.l}</Label>
+                    <Num style={{ fontSize: 14, fontWeight: 700, color: x.c }}>{x.v}</Num>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ══ EDITAR ═══════════════════════════════════════════════════ */}
+        {tab === "editar" && (
+          <div>
+            <Card style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Ingresos fijos</div>
+              {data.fuentes.map(f => (
+                <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.bord}` }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 99, background: f.color }} />
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{f.nombre}</span>
+                    {f.id === "fs" && <Chip color={f.color} sm>irregular</Chip>}
+                  </div>
+                  <EditNum value={f.monto} onChange={v => updFuente(f.id, "monto", v)} color={f.color} />
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 12 }}>
+                <span style={{ fontWeight: 700 }}>Total fijo</span>
+                <Num style={{ fontSize: 16, fontWeight: 700, color: "#22C55E" }}>{D(ingresoFijo)}</Num>
+              </div>
+            </Card>
+
+            <Card style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Mes y configuración</div>
+              <div style={{ marginBottom: 12 }}>
+                <Label>Mes actual</Label>
+                <select value={data.mes} onChange={e => upd("mes", e.target.value)}
+                  style={{ width: "100%", background: T.bg, border: `1px solid ${T.bord}`, borderRadius: 10, padding: "9px 12px", color: T.text, fontSize: 13 }}>
+                  {MESES_L.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label>Tipo de cambio (DOP/USD)</Label>
+                <EditNum value={data.tc} onChange={v => upd("tc", v)} color="#F59E0B" prefix="" />
+              </div>
+            </Card>
+
+            <Card>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Resumen de cambios</div>
+              {[
+                { l: "Ingresos fijos", v: D(ingresoFijo), c: "#22C55E" },
+                { l: "Total comprometido", v: D(totalSobres), c: "#F97316" },
+                { l: "Balance fijo", v: D(Math.abs(balanceFijo)), c: balanceFijo >= 0 ? "#22C55E" : "#EF4444" },
+                { l: "Con Cliente FS", v: D(Math.abs(balanceTotal)), c: balanceTotal >= 0 ? "#2DD4BF" : "#EF4444" },
+                { l: "Deuda tarjetas", v: D(totalDeuda), c: "#EF4444" },
+                { l: "Cashback total", v: D(totalCashback), c: "#22C55E" },
+              ].map((x, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 5 ? `1px solid ${T.bord}` : "none" }}>
+                  <span style={{ fontSize: 13, color: T.muted }}>{x.l}</span>
+                  <Num style={{ fontSize: 14, fontWeight: 600, color: x.c }}>{x.v}</Num>
+                </div>
+              ))}
+            </Card>
           </div>
         )}
       </div>
-
-      {/* FAB */}
-      {tab==="sobres"&&sf.length>0&&(
-        <div style={{position:"fixed",bottom:28,right:20,zIndex:90}}>
-          <button onClick={()=>{const s=sf.find(s=>Number(s.monto_asignado)>Number(s.monto_gastado));if(s)setModalGasto(s);}} style={{background:"#4A9AE8",border:"none",borderRadius:99,width:64,height:64,fontSize:30,cursor:"pointer",boxShadow:"0 4px 24px #4A9AE866",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-        </div>
-      )}
-
-      {/* MODALES */}
-      {modalGasto&&<ModalGasto sobre={modalGasto} onSave={registrarGasto} onClose={()=>setModalGasto(null)}/>}
-      {modalEdit&&<ModalEditSobre sobre={modalEdit} onSave={editarSobre} onClose={()=>setModalEdit(null)}/>}
-
-      {/* MODAL AGREGAR SOBRE */}
-      {showAdd&&(
-        <div style={{position:"fixed",inset:0,background:"#000C",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000}}>
-          <Card style={{width:"100%",maxWidth:480,borderRadius:"20px 20px 0 0",padding:"24px 20px 36px",borderTop:"3px solid #4A9AE8"}}>
-            <div style={{width:40,height:4,background:"#2A3545",borderRadius:99,margin:"0 auto 20px"}}/>
-            <div style={{fontWeight:700,fontSize:16,marginBottom:20}}>Nuevo sobre · {MES_L[mes]} Q{quinc}</div>
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>Nombre del sobre</div>
-              <input type="text" value={newS.nombre} onChange={e=>setNewS({...newS,nombre:e.target.value})} placeholder="Ej: Alimentación, Abono EDESUR..." style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px 12px",color:"#F0F4F8",fontSize:14}}/>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-              <div>
-                <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>Fuente</div>
-                <select value={newS.fuente} onChange={e=>{const cs={"ETED 1°":"#4AE8A0","CNE":"#E8924A","ETED 2°":"#A04AE8","MEM":"#E8C44A"};setNewS({...newS,fuente:e.target.value,fuente_color:cs[e.target.value]||"#7A8899"});}} style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px",color:"#F0F4F8",fontSize:13}}>
-                  {["ETED 1°","CNE","ETED 2°","MEM"].map(f=><option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>Monto (DOP)</div>
-                <input type="number" value={newS.monto_asignado||""} onChange={e=>setNewS({...newS,monto_asignado:parseFloat(e.target.value)||0})} style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px",color:"#F0F4F8",fontSize:14,fontFamily:"'DM Mono',monospace"}}/>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
-              <div>
-                <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>Categoría</div>
-                <select value={newS.categoria} onChange={e=>setNewS({...newS,categoria:e.target.value})} style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px",color:"#F0F4F8",fontSize:13}}>
-                  {Object.entries(catIcon).map(([k,v])=><option key={k} value={k}>{v} {k}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{fontSize:11,color:"#7A8899",marginBottom:5}}>Tarjeta (opcional)</div>
-                <select value={newS.tarjeta_id} onChange={e=>setNewS({...newS,tarjeta_id:e.target.value})} style={{width:"100%",background:"#131920",border:"1px solid #2A3545",borderRadius:10,padding:"10px",color:"#F0F4F8",fontSize:13}}>
-                  <option value="">Ninguna</option>
-                  {tarjetas.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={agregarSobre} style={{flex:2,background:"#4A9AE8",border:"none",borderRadius:12,color:"#000",fontWeight:700,padding:14,cursor:"pointer",fontSize:15}}>Crear sobre</button>
-              <button onClick={()=>setShowAdd(false)} style={{flex:1,background:"#1A2030",border:"1px solid #2A3545",borderRadius:12,color:"#7A8899",padding:14,cursor:"pointer",fontSize:14}}>Cancelar</button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
