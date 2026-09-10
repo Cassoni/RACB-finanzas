@@ -2,127 +2,143 @@ import { useState, useEffect, useCallback } from "react";
 
 const SB = "https://gxhdxbabjqmyldbctwoy.supabase.co";
 const SK = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4aGR4YmFianFteWxkYmN0d295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNTcyOTMsImV4cCI6MjA5NTYzMzI5M30.xq_HSa1s1qjECPvC9lpH0ikjGnkZFoJeYzF4i_epr6Y";
-const H = { "apikey": SK, "Authorization": `Bearer ${SK}`, "Content-Type": "application/json", "Prefer": "return=representation" };
+const H = {"apikey":SK,"Authorization":`Bearer ${SK}`,"Content-Type":"application/json","Prefer":"return=representation"};
 
 const api = {
-  get: async (t, q="") => { try { const r=await fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H}); if(!r.ok)return[]; return r.json(); } catch{return[];} },
-  post: async (t, b) => { try { const r=await fetch(`${SB}/rest/v1/${t}`,{method:"POST",headers:H,body:JSON.stringify(b)}); if(!r.ok)return null; const d=await r.json(); return Array.isArray(d)?d[0]:d; } catch{return null;} },
-  patch: async (t, f, b) => { try { const r=await fetch(`${SB}/rest/v1/${t}?${f}`,{method:"PATCH",headers:H,body:JSON.stringify(b)}); if(!r.ok)return null; return r.json(); } catch{return null;} },
-  del: async (t, f) => { try { await fetch(`${SB}/rest/v1/${t}?${f}`,{method:"DELETE",headers:H}); } catch{} },
+  get: async(t,q="")=>{try{const r=await fetch(`${SB}/rest/v1/${t}?${q}`,{headers:H});if(!r.ok)return[];return r.json();}catch{return[];}},
+  post: async(t,b)=>{try{const r=await fetch(`${SB}/rest/v1/${t}`,{method:"POST",headers:H,body:JSON.stringify(b)});if(!r.ok)return null;const d=await r.json();return Array.isArray(d)?d[0]:d;}catch{return null;}},
+  patch: async(t,f,b)=>{try{const r=await fetch(`${SB}/rest/v1/${t}?${f}`,{method:"PATCH",headers:H,body:JSON.stringify(b)});if(!r.ok)return null;return r.json();}catch{return null;}},
+  del: async(t,f)=>{try{await fetch(`${SB}/rest/v1/${t}?${f}`,{method:"DELETE",headers:H});}catch{}},
 };
 
-const D = n => `RD$${new Intl.NumberFormat("es-DO").format(Math.round(Math.abs(n||0)))}`;
-const pct = (a,b) => b>0?Math.min(100,(a/b)*100):0;
+const D = n=>`RD$${new Intl.NumberFormat("es-DO").format(Math.round(Math.abs(n||0)))}`;
+const pct = (a,b)=>b>0?Math.min(100,(a/b)*100):0;
 
-// ── Configuración base ─────────────────────────────────────────────
+// ── DATOS BASE ─────────────────────────────────────────────────────
+// tarjeta: null = efectivo/transferencia
 const INIT = {
   tc: 61.4, mes: "Septiembre",
   fuentes: [
-    { id:"eted1", nombre:"ETED 1°",   color:"#2DD4BF", monto:110000, credito:15335 },
-    { id:"mem",   nombre:"MEM",        color:"#60A5FA", monto:61200,  credito:0 },
-    { id:"cne",   nombre:"CNE",        color:"#F97316", monto:140000, credito:0 },
-    { id:"eted2", nombre:"ETED 2°",    color:"#A78BFA", monto:90000,  credito:0 },
-    { id:"fs",    nombre:"Cliente FS", color:"#34D399", monto:120000, credito:0 },
+    {id:"eted1",nombre:"ETED 1°",  color:"#2DD4BF",monto:110000,credito:15335},
+    {id:"mem",  nombre:"MEM",      color:"#60A5FA",monto:61200, credito:0},
+    {id:"cne",  nombre:"CNE",      color:"#F97316",monto:140000,credito:0},
+    {id:"eted2",nombre:"ETED 2°",  color:"#A78BFA",monto:90000, credito:0},
+    {id:"fs",   nombre:"Cliente FS",color:"#34D399",monto:120000,credito:0},
   ],
-  // tarjeta: null = pago directo (efectivo/transferencia)
+  // ── SOBRES — agrupados por RUBRO/CATEGORÍA ──────────────────────
   sobres: [
-    { id:"s1",  fuente:"eted1", concepto:"Colegio (hija mayor)", categoria:"educacion",    monto:27500,  tarjeta:null },
-    { id:"s2",  fuente:"eted1", concepto:"Alquiler/Hipoteca",    categoria:"vivienda",     monto:36600,  tarjeta:null },
-    { id:"s3",  fuente:"eted1", concepto:"Social",               categoria:"social",       monto:8000,   tarjeta:null },
-    { id:"s4",  fuente:"eted1", concepto:"Salud",                categoria:"salud",        monto:10000,  tarjeta:null },
-    { id:"s5",  fuente:"eted1", concepto:"Imprevistos",          categoria:"social",       monto:2500,   tarjeta:null },
-    { id:"s6",  fuente:"eted1", concepto:"Reservas",             categoria:"ahorro",       monto:10000,  tarjeta:null },
-    { id:"s7",  fuente:"eted1", concepto:"Pago hipotecario",     categoria:"vivienda",     monto:170465, tarjeta:null },
-    { id:"s8",  fuente:"cne",   concepto:"Alimentación",         categoria:"alimentacion", monto:13500,  tarjeta:"visapremia" },
-    { id:"s9",  fuente:"cne",   concepto:"Mantenimiento apto",   categoria:"vivienda",     monto:17045,  tarjeta:"banres" },
-    { id:"s10", fuente:"eted2", concepto:"Alimentación 1",       categoria:"alimentacion", monto:18500,  tarjeta:"visapremia" },
-    { id:"s11", fuente:"eted2", concepto:"Electricidad",         categoria:"servicios",    monto:12000,  tarjeta:"edesur" },
-    { id:"s12", fuente:"eted2", concepto:"Alimentación 2",       categoria:"alimentacion", monto:8000,   tarjeta:"visapremia" },
-    { id:"s13", fuente:"eted2", concepto:"Yeli",                 categoria:"salud",        monto:17000,  tarjeta:null },
-    { id:"s14", fuente:"eted2", concepto:"Valentina (colegio)",  categoria:"educacion",    monto:6000,   tarjeta:null },
-    { id:"s15", fuente:"eted2", concepto:"LUMURI Recrea (tanda)",categoria:"educacion",    monto:10000,  tarjeta:"bravo" },
+    // VIVIENDA
+    {id:"s_hip", fuente:"eted1",concepto:"Apartamento (hipoteca)",   categoria:"vivienda",    tarjeta:null,      monto:170465},
+    {id:"s_mant",fuente:"cne",  concepto:"Mantenimiento apto",       categoria:"vivienda",    tarjeta:null,      monto:17045},
+    // EDUCACIÓN
+    {id:"s_col", fuente:"eted1",concepto:"Colegio",                  categoria:"educacion",   tarjeta:"bravo",   monto:27500},
+    {id:"s_val", fuente:"eted2",concepto:"Valentina",                categoria:"educacion",   tarjeta:null,      monto:6000},
+    {id:"s_lum", fuente:"eted2",concepto:"LUMURI Recrea (tanda)",    categoria:"educacion",   tarjeta:"bravo",   monto:10000},
+    // ALIMENTACIÓN
+    {id:"s_a1",  fuente:"cne",  concepto:"Alimentación BHD Premia",  categoria:"alimentacion",tarjeta:"visapremia",monto:13500},
+    {id:"s_a2",  fuente:"eted2",concepto:"Alimentación BHD Premia",  categoria:"alimentacion",tarjeta:"visapremia",monto:8000},
+    {id:"s_a3",  fuente:"eted2",concepto:"Alimentación BSC Bravo",   categoria:"alimentacion",tarjeta:"bravo",   monto:18500},
+    // TRANSPORTE
+    {id:"s_uber",fuente:"eted1",concepto:"Uber",                     categoria:"transporte",  tarjeta:"bravo",   monto:4000},
+    // SOCIAL
+    {id:"s_soc", fuente:"eted1",concepto:"Social",                   categoria:"social",      tarjeta:"bravo",   monto:8000},
+    // SALUD
+    {id:"s_sal", fuente:"eted1",concepto:"Salud",                    categoria:"salud",       tarjeta:"banres",  monto:10000},
+    {id:"s_yeli",fuente:"eted2",concepto:"Yeli",                     categoria:"salud",       tarjeta:null,      monto:17000},
+    // SERVICIOS
+    {id:"s_elec",fuente:"eted2",concepto:"Electricidad",             categoria:"servicios",   tarjeta:"edesur",  monto:12000},
+    // DEUDA / CRÉDITO
+    {id:"s_ext", fuente:"eted1",concepto:"Extracredito",             categoria:"deuda",       tarjeta:"banres",  monto:2500},
+    // AHORRO
+    {id:"s_res", fuente:"eted1",concepto:"Reservas",                 categoria:"ahorro",      tarjeta:"banres",  monto:10000},
+    // IMPREVISTOS
+    {id:"s_imp", fuente:"eted1",concepto:"Imprevistos",              categoria:"imprevistos", tarjeta:null,      monto:32600},
   ],
   tarjetas: [
-    { id:"edesur",     nombre:"EDESUR BHD Master",   color:"#EF4444", saldo:0,     presup:12000, cashback:0.05, tipo:"servicio" },
-    { id:"visapremia", nombre:"Visa Premia BHD",     color:"#F97316", saldo:88421, presup:21500, cashback:0.05, tipo:"mercado" },
-    { id:"bravo",      nombre:"Bravo BSC Visa",      color:"#A78BFA", saldo:45323, presup:46000, cashback:0.07, tipo:"cashback" },
-    { id:"banres",     nombre:"Banreservas MC",      color:"#60A5FA", saldo:64203, presup:30500, cashback:0,    tipo:"corriente" },
-    { id:"promerica",  nombre:"Promerica Visa Gold", color:"#34D399", saldo:0,     presup:0,     cashback:0,    tipo:"liquidada" },
+    {id:"bravo",     nombre:"Bravo BSC Visa",     color:"#6366F1",saldo:45323,presup:68000,cashback:0.07},
+    {id:"visapremia",nombre:"BHD Visa Premia",    color:"#10B981",saldo:88421,presup:21500,cashback:0.05},
+    {id:"banres",    nombre:"Banreservas MC",      color:"#60A5FA",saldo:64203,presup:22500,cashback:0},
+    {id:"edesur",    nombre:"EDESUR BHD Master",  color:"#84CC16",saldo:0,    presup:12000,cashback:0.05},
+    {id:"promerica", nombre:"Promerica Visa Gold", color:"#34D399",saldo:0,    presup:0,    cashback:0},
   ],
-  extracredito: { saldo:45077, abono:2500 },
+  extracredito:{saldo:45077,abono:2500},
 };
 
+// ── CATEGORÍAS con ícono, label, color ────────────────────────────
 const CATS = {
-  vivienda:     { icon:"🏠", label:"Vivienda",        color:"#EF4444" },
-  educacion:    { icon:"📚", label:"Educación",        color:"#8B5CF6" },
-  alimentacion: { icon:"🍽️",  label:"Alimentación",    color:"#10B981" },
-  salud:        { icon:"💊", label:"Salud",            color:"#EC4899" },
-  servicios:    { icon:"🔌", label:"Servicios",        color:"#6366F1" },
-  social:       { icon:"🎉", label:"Social/Imprev.",   color:"#14B8A6" },
-  ahorro:       { icon:"💰", label:"Ahorro",           color:"#22C55E" },
+  vivienda:     {icon:"🏠",label:"Vivienda",       color:"#EF4444"},
+  educacion:    {icon:"📚",label:"Educación",       color:"#8B5CF6"},
+  alimentacion: {icon:"🍽️", label:"Alimentación",   color:"#10B981"},
+  transporte:   {icon:"🚗",label:"Transporte",      color:"#F59E0B"},
+  social:       {icon:"🎉",label:"Social",           color:"#14B8A6"},
+  salud:        {icon:"💊",label:"Salud",            color:"#EC4899"},
+  servicios:    {icon:"🔌",label:"Servicios",        color:"#6366F1"},
+  deuda:        {icon:"💳",label:"Deuda/Crédito",   color:"#F97316"},
+  ahorro:       {icon:"💰",label:"Ahorro",           color:"#22C55E"},
+  imprevistos:  {icon:"⚡",label:"Imprevistos",      color:"#94A3B8"},
 };
 
 const MESES_L = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const T = { bg:"#09090B", surf:"#18181B", bord:"#27272A", text:"#FAFAFA", muted:"#71717A", sub:"#3F3F46" };
+const T = {bg:"#09090B",surf:"#18181B",bord:"#27272A",text:"#FAFAFA",muted:"#71717A",sub:"#3F3F46"};
 
 // ── Micro UI ───────────────────────────────────────────────────────
-const Bar = ({v,max,color,h=6}) => (
+const Bar=({v,max,color,h=6})=>(
   <div style={{background:T.sub,borderRadius:99,height:h,overflow:"hidden"}}>
     <div style={{width:`${pct(v,max)}%`,height:"100%",background:color,borderRadius:99,transition:"width .4s"}}/>
   </div>
 );
-const Chip = ({color,children,sm}) => (
+const Chip=({color,children,sm})=>(
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,borderRadius:6,padding:sm?"1px 7px":"3px 10px",fontSize:sm?10:11,fontWeight:600,whiteSpace:"nowrap"}}>{children}</span>
 );
-const Card = ({children,style={},accent}) => (
+const Card=({children,style={},accent})=>(
   <div style={{background:T.surf,border:`1px solid ${T.bord}`,borderRadius:14,padding:16,borderLeft:accent?`3px solid ${accent}`:undefined,...style}}>{children}</div>
 );
-const Lbl = ({children}) => (
+const Lbl=({children})=>(
   <div style={{fontSize:9,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>{children}</div>
 );
 
-// ── Modal gasto rápido ─────────────────────────────────────────────
-function ModalGasto({sobre, fuente, tarjetaNombre, onSave, onClose}) {
+// ── Modal gasto ────────────────────────────────────────────────────
+function ModalGasto({sobre,fuente,tarjeta,onSave,onClose}){
   const [desc,setDesc]=useState("");
   const [monto,setMonto]=useState("");
   const [fecha,setFecha]=useState(new Date().toISOString().slice(0,10));
   const [saving,setSaving]=useState(false);
-  const disponible = sobre.monto - (sobre.ejecutado||0);
+  const disp=sobre.monto-(sobre.ejecutado||0);
+  const color=tarjeta?.color||fuente.color;
 
-  const guardar = async () => {
-    if(!monto||!desc) return;
+  const guardar=async()=>{
+    if(!monto||!desc)return;
     setSaving(true);
     await onSave({sobre_id:sobre.id,descripcion:desc,monto:parseFloat(monto),fecha,fuente:fuente.id,categoria:sobre.categoria,tarjeta:sobre.tarjeta});
     setSaving(false);
   };
 
-  return (
+  return(
     <div style={{position:"fixed",inset:0,background:"#000D",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000}}>
-      <div style={{background:T.surf,borderRadius:"20px 20px 0 0",borderTop:`3px solid ${fuente.color}`,padding:"24px 20px 44px",width:"100%",maxWidth:520}}>
+      <div style={{background:T.surf,borderRadius:"20px 20px 0 0",borderTop:`3px solid ${color}`,padding:"24px 20px 44px",width:"100%",maxWidth:520}}>
         <div style={{width:36,height:3,background:T.sub,borderRadius:99,margin:"0 auto 20px"}}/>
         <div style={{fontSize:15,fontWeight:700,marginBottom:2}}>{sobre.concepto}</div>
-        <div style={{fontSize:11,color:T.muted,marginBottom:4}}>
-          Disponible: <span style={{color:"#22C55E",fontWeight:700}}>{D(disponible)}</span>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
+          <span style={{fontSize:11,color:T.muted}}>Disponible: <span style={{color:"#22C55E",fontWeight:700}}>{D(disp)}</span></span>
+          {tarjeta
+            ? <Chip color={tarjeta.color} sm>💳 {tarjeta.nombre}</Chip>
+            : <Chip color={T.muted} sm>💵 Efectivo / transferencia</Chip>
+          }
         </div>
-        {sobre.tarjeta && (
-          <div style={{marginBottom:16}}>
-            <Chip color={fuente.color} sm>💳 Se carga a: {tarjetaNombre}</Chip>
-          </div>
-        )}
 
         <div style={{background:T.bg,border:`1px solid ${T.bord}`,borderRadius:14,padding:16,marginBottom:14,textAlign:"center"}}>
           <Lbl>Monto (DOP)</Lbl>
           <input type="number" inputMode="numeric" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0" autoFocus
-            style={{background:"transparent",border:"none",fontFamily:"monospace",fontSize:40,fontWeight:700,color:fuente.color,textAlign:"center",width:"100%",outline:"none"}}/>
+            style={{background:"transparent",border:"none",fontFamily:"monospace",fontSize:40,fontWeight:700,color,textAlign:"center",width:"100%",outline:"none"}}/>
         </div>
 
-        <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="¿En qué? (supermercado, farmacia...)"
+        <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="¿En qué? (descripción del gasto)"
           style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:12,padding:"12px 14px",color:T.text,fontSize:14,marginBottom:10,outline:"none"}}/>
         <input type="date" value={fecha} onChange={e=>setFecha(e.target.value)}
           style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:12,padding:"10px 14px",color:T.muted,fontSize:13,marginBottom:18,outline:"none"}}/>
 
         <div style={{display:"flex",gap:10}}>
-          <button onClick={guardar} disabled={saving} style={{flex:2,background:fuente.color,border:"none",borderRadius:12,color:"#000",fontWeight:700,padding:14,cursor:"pointer",fontSize:16}}>
+          <button onClick={guardar} disabled={saving} style={{flex:2,background:color,border:"none",borderRadius:12,color:"#000",fontWeight:700,padding:14,cursor:"pointer",fontSize:16}}>
             {saving?"Guardando...":"✓ Registrar"}
           </button>
           <button onClick={onClose} style={{flex:1,background:T.bg,border:`1px solid ${T.bord}`,borderRadius:12,color:T.muted,padding:14,cursor:"pointer",fontSize:14}}>
@@ -134,80 +150,82 @@ function ModalGasto({sobre, fuente, tarjetaNombre, onSave, onClose}) {
   );
 }
 
-// ── Sobre card expandible ──────────────────────────────────────────
-function SobreCard({sobre,fuente,gastosList,tarjeta,onRegistrar,onEliminar}) {
+// ── Sobre item dentro de categoría ────────────────────────────────
+function SobreItem({sobre,fuente,tarjeta,gastosList,onRegistrar,onEliminar}){
   const [open,setOpen]=useState(false);
-  const cat=CATS[sobre.categoria];
   const ejecutado=gastosList.reduce((s,g)=>s+Number(g.monto),0);
-  const disponible=sobre.monto-ejecutado;
-  const agotado=disponible<=0;
+  const disp=sobre.monto-ejecutado;
+  const agotado=disp<=0;
   const p=pct(ejecutado,sobre.monto);
-  const barColor=p>=100?"#EF4444":p>=80?"#F97316":p>=50?"#F59E0B":fuente.color;
+  const color=tarjeta?.color||(agotado?"#EF4444":"#94A3B8");
+  const barColor=p>=100?"#EF4444":p>=80?"#F97316":p>=50?"#F59E0B":color;
 
-  return (
-    <div style={{background:agotado?"#EF444408":T.surf,border:`1px solid ${agotado?"#EF444433":T.bord}`,borderRadius:14,marginBottom:8,overflow:"hidden"}}>
-      {/* Header */}
-      <div style={{padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOpen(!open)}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-          <div style={{flex:1}}>
-            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
-              <span style={{fontSize:14,fontWeight:700}}>{sobre.concepto}</span>
-              <Chip color={cat?.color||"#888"} sm>{cat?.icon} {cat?.label}</Chip>
-            </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              <Chip color={fuente.color} sm>{fuente.nombre}</Chip>
-              {tarjeta && <Chip color={tarjeta.color} sm>💳 {tarjeta.nombre}</Chip>}
-              {gastosList.length>0 && <Chip color={T.muted} sm>{gastosList.length} movs.</Chip>}
-            </div>
+  return(
+    <div style={{border:`1px solid ${open?color:T.bord}`,borderRadius:12,marginBottom:8,overflow:"hidden",background:agotado?"#EF444408":T.bg}}>
+      {/* Fila principal */}
+      <div onClick={()=>setOpen(!open)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",cursor:"pointer"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+            <span style={{fontSize:13,fontWeight:600}}>{sobre.concepto}</span>
+            {tarjeta
+              ? <Chip color={tarjeta.color} sm>💳 {tarjeta.nombre.split(" ")[0]}</Chip>
+              : <Chip color={T.muted} sm>💵 Cash</Chip>
+            }
           </div>
-          <div style={{textAlign:"right",marginLeft:10,flexShrink:0}}>
-            <div style={{fontFamily:"monospace",fontSize:15,fontWeight:700,color:agotado?"#EF4444":"#22C55E"}}>
-              {agotado?"AGOTADO":D(disponible)}
-            </div>
-            <div style={{fontSize:10,color:T.muted}}>de {D(sobre.monto)}</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <Chip color={fuente.color} sm>{fuente.nombre}</Chip>
+            {gastosList.length>0&&<Chip color={T.muted} sm>{gastosList.length} movs.</Chip>}
           </div>
         </div>
-        <Bar v={ejecutado} max={sobre.monto} color={barColor} h={6}/>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:T.muted}}>
-          <span>{D(ejecutado)} gastado · {p.toFixed(0)}%</span>
-          <span>{open?"▲":"▼"}</span>
+        <div style={{textAlign:"right",marginLeft:10,flexShrink:0}}>
+          <div style={{fontFamily:"monospace",fontSize:14,fontWeight:700,color:agotado?"#EF4444":"#22C55E"}}>
+            {agotado?"AGOTADO":D(disp)}
+          </div>
+          <div style={{fontSize:10,color:T.muted}}>{D(ejecutado)} / {D(sobre.monto)}</div>
         </div>
       </div>
 
-      {/* Detalle */}
-      {open && (
+      {/* Barra */}
+      <div style={{padding:"0 14px 10px"}}>
+        <Bar v={ejecutado} max={sobre.monto} color={barColor} h={5}/>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:3,fontSize:9,color:T.muted}}>
+          <span>{p.toFixed(0)}% ejecutado</span>
+          <span style={{color:open?T.text:T.muted}}>{open?"▲ cerrar":"▼ detalle"}</span>
+        </div>
+      </div>
+
+      {/* Detalle expandido */}
+      {open&&(
         <div style={{borderTop:`1px solid ${T.bord}`}}>
-          {gastosList.length===0 ? (
-            <div style={{padding:"16px",textAlign:"center",color:T.muted,fontSize:13}}>Sin gastos registrados</div>
-          ) : (
-            <div style={{padding:"0 16px"}}>
+          {gastosList.length===0?(
+            <div style={{padding:"12px 14px",textAlign:"center",color:T.muted,fontSize:12}}>Sin gastos registrados</div>
+          ):(
+            <div style={{padding:"0 14px"}}>
               {gastosList.map(g=>(
-                <div key={g.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${T.bord}`}}>
+                <div key={g.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${T.bord}`}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:500}}>{g.descripcion}</div>
+                    <div style={{fontSize:13}}>{g.descripcion}</div>
                     <div style={{fontSize:10,color:T.muted}}>
                       {new Date(g.fecha).toLocaleDateString("es-DO",{day:"numeric",month:"short"})}
-                      {g.tarjeta && <span style={{color:tarjeta?.color||T.muted}}> · {tarjeta?.nombre}</span>}
+                      {tarjeta&&<span style={{color:tarjeta.color}}> · {tarjeta.nombre.split(" ")[0]}</span>}
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <span style={{fontFamily:"monospace",fontSize:14,fontWeight:700,color:"#EF4444"}}>{D(Number(g.monto))}</span>
-                    <button onClick={()=>onEliminar(g.id)} style={{background:"transparent",border:"none",color:T.muted,cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>
+                    <span style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#EF4444"}}>{D(Number(g.monto))}</span>
+                    <button onClick={()=>onEliminar(g.id)} style={{background:"transparent",border:"none",color:T.muted,cursor:"pointer",fontSize:16}}>×</button>
                   </div>
                 </div>
               ))}
-              <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",fontWeight:700}}>
-                <span style={{fontSize:13}}>Total gastado</span>
-                <span style={{fontFamily:"monospace",fontSize:14,color:barColor}}>{D(ejecutado)}</span>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700,fontSize:13}}>
+                <span>Total</span>
+                <span style={{fontFamily:"monospace",color:barColor}}>{D(ejecutado)}</span>
               </div>
             </div>
           )}
-          <div style={{padding:"12px 16px",borderTop:`1px solid ${T.bord}`}}>
+          <div style={{padding:"10px 14px",borderTop:`1px solid ${T.bord}`}}>
             <button onClick={()=>onRegistrar({...sobre,ejecutado})} style={{
-              width:"100%",background:agotado?"#EF444422":fuente.color+"22",
-              border:`1px solid ${agotado?"#EF444455":fuente.color+"55"}`,
-              borderRadius:10,color:agotado?"#EF4444":fuente.color,
-              padding:"11px",cursor:"pointer",fontSize:13,fontWeight:600,
+              width:"100%",background:color+"22",border:`1px solid ${color}44`,
+              borderRadius:10,color,padding:"10px",cursor:"pointer",fontSize:13,fontWeight:600,
             }}>
               {agotado?"⚠️ Sobre agotado — registrar igualmente":"+ Registrar gasto"}
             </button>
@@ -219,14 +237,14 @@ function SobreCard({sobre,fuente,gastosList,tarjeta,onRegistrar,onEliminar}) {
 }
 
 // ── APP ────────────────────────────────────────────────────────────
-export default function App() {
+export default function App(){
   const [data,setData]=useState(INIT);
-  const [tab,setTab]=useState("sobres");
+  const [tab,setTab]=useState("rubros");
   const [gastos,setGastos]=useState([]);
   const [loading,setLoading]=useState(true);
   const [saved,setSaved]=useState(false);
-  const [modalSobre,setModalSobre]=useState(null);
-  const [catActiva,setCatActiva]=useState(null);
+  const [modal,setModal]=useState(null);
+  const [catOpen,setCatOpen]=useState({});
 
   const flash=()=>{setSaved(true);setTimeout(()=>setSaved(false),2500);};
 
@@ -243,78 +261,75 @@ export default function App() {
 
   useEffect(()=>{cargar();},[cargar]);
 
-  const guardarConfig=async(nd)=>{
+  const guardar=async(nd)=>{
     setData(nd);
     await api.post("panel_raniero",{datos:JSON.stringify(nd),updated_at:new Date().toISOString()});
     flash();
   };
 
-  // Registrar gasto → actualiza tarjeta si aplica
   const registrarGasto=async(gasto)=>{
     const creado=await api.post("gastos_raniero",gasto);
     const g=creado||{...gasto,id:Date.now()};
     setGastos(prev=>[g,...prev]);
-
-    // Si el sobre tiene tarjeta afiliada → subir saldo automáticamente
+    // Auto-actualizar saldo tarjeta
     if(gasto.tarjeta){
       const clone=JSON.parse(JSON.stringify(data));
       const t=clone.tarjetas.find(t=>t.id===gasto.tarjeta);
-      if(t){ t.saldo=Number(t.saldo)+Number(gasto.monto); guardarConfig(clone); }
+      if(t){t.saldo=Number(t.saldo)+Number(gasto.monto);guardar(clone);}
     } else { flash(); }
-    setModalSobre(null);
+    setModal(null);
   };
 
   const eliminarGasto=async(id)=>{
-    // Revertir saldo de tarjeta si aplica
     const g=gastos.find(g=>g.id===id);
     if(g&&g.tarjeta){
       const clone=JSON.parse(JSON.stringify(data));
       const t=clone.tarjetas.find(t=>t.id===g.tarjeta);
-      if(t){ t.saldo=Math.max(0,Number(t.saldo)-Number(g.monto)); guardarConfig(clone); }
+      if(t){t.saldo=Math.max(0,Number(t.saldo)-Number(g.monto));guardar(clone);}
     }
     await api.del("gastos_raniero",`id=eq.${id}`);
     setGastos(prev=>prev.filter(g=>g.id!==id));
     flash();
   };
 
-  const updSobre=(id,f,v)=>{const c=JSON.parse(JSON.stringify(data));const s=c.sobres.find(s=>s.id===id);if(s){s[f]=v;guardarConfig(c);}};
-  const updFuente=(id,f,v)=>{const c=JSON.parse(JSON.stringify(data));const fu=c.fuentes.find(f=>f.id===id);if(fu){fu[f]=v;guardarConfig(c);}};
-  const updTarjeta=(id,f,v)=>{const c=JSON.parse(JSON.stringify(data));const t=c.tarjetas.find(t=>t.id===id);if(t){t[f]=v;guardarConfig(c);}};
+  const getTarj=id=>id?data.tarjetas.find(t=>t.id===id):null;
+  const getFuente=id=>data.fuentes.find(f=>f.id===id)||data.fuentes[0];
 
-  // ── Datos calculados ─────────────────────────────────────────────
+  // Sobres enriquecidos con ejecutado
   const sobreExt=data.sobres.map(s=>({
     ...s,
     ejecutado:gastos.filter(g=>g.sobre_id===s.id).reduce((a,g)=>a+Number(g.monto),0),
     gastos:gastos.filter(g=>g.sobre_id===s.id),
   }));
 
+  // Métricas globales
   const ingresoFijo=data.fuentes.filter(f=>f.id!=="fs").reduce((s,f)=>s+f.monto+f.credito,0);
-  const ingresoTotal=data.fuentes.reduce((s,f)=>s+f.monto+f.credito,0);
   const totalPresup=data.sobres.reduce((s,x)=>s+x.monto,0);
   const totalEjec=gastos.reduce((s,g)=>s+Number(g.monto),0);
   const balanceFijo=ingresoFijo-totalPresup;
+
+  // Métricas tarjetas
   const totalDeuda=data.tarjetas.reduce((s,t)=>s+t.saldo,0);
-  const totalCB=data.tarjetas.reduce((s,t)=>s+(t.saldo*t.cashback),0);
+  const totalCB=data.tarjetas.reduce((s,t)=>s+t.saldo*t.cashback,0);
 
-  // Por categoría
-  const porCat=Object.entries(CATS).map(([id,meta])=>({
-    id,...meta,
-    presup:sobreExt.filter(s=>s.categoria===id).reduce((a,s)=>a+s.monto,0),
-    ejec:sobreExt.filter(s=>s.categoria===id).reduce((a,s)=>a+s.ejecutado,0),
-    sobres:sobreExt.filter(s=>s.categoria===id),
-  })).filter(c=>c.presup>0).sort((a,b)=>b.presup-a.presup);
-
-  const getTarjeta=id=>id?data.tarjetas.find(t=>t.id===id):null;
-  const getFuente=id=>data.fuentes.find(f=>f.id===id)||data.fuentes[0];
+  // Rubros agrupados
+  const rubros=Object.entries(CATS).map(([catId,meta])=>{
+    const sob=sobreExt.filter(s=>s.categoria===catId);
+    const presup=sob.reduce((a,s)=>a+s.monto,0);
+    const ejec=sob.reduce((a,s)=>a+s.ejecutado,0);
+    return{id:catId,...meta,sobres:sob,presup,ejec,varianza:presup-ejec};
+  }).filter(r=>r.presup>0);
 
   const TABS=[
-    {id:"sobres",  l:"💼 Sobres"},
-    {id:"cats",    l:"📊 Categorías"},
+    {id:"rubros",  l:"📋 Rubros"},
     {id:"tarjetas",l:"💳 Tarjetas"},
+    {id:"resumen", l:"📊 Resumen"},
     {id:"config",  l:"⚙️ Config"},
   ];
 
-  return (
+  const toggleCat=id=>setCatOpen(p=>({...p,[id]:!p[id]}));
+
+  return(
     <div style={{minHeight:"100vh",background:T.bg,fontFamily:"'Inter',system-ui,sans-serif",color:T.text,maxWidth:600,margin:"0 auto"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');*{box-sizing:border-box;margin:0;padding:0}input,select{outline:none}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${T.sub};border-radius:2px}button:active{opacity:.85;transform:scale(.98)}`}</style>
 
@@ -331,13 +346,13 @@ export default function App() {
             <button onClick={cargar} style={{background:T.sub,border:"none",borderRadius:8,color:T.muted,padding:"5px 10px",cursor:"pointer",fontSize:12}}>↻</button>
           </div>
         </div>
-        {/* KPI strip */}
+        {/* KPIs */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
           {[
-            {l:"Ingreso fijo",v:D(ingresoFijo),c:"#22C55E"},
-            {l:"Presupuesto",v:D(totalPresup),c:"#F97316"},
-            {l:"Ejecutado",v:D(totalEjec),c:totalEjec>totalPresup?"#EF4444":"#60A5FA"},
-            {l:"Balance",v:D(Math.abs(balanceFijo)),c:balanceFijo>=0?"#22C55E":"#EF4444"},
+            {l:"Ing. fijo",  v:D(ingresoFijo), c:"#22C55E"},
+            {l:"Presupuesto",v:D(totalPresup),  c:"#F97316"},
+            {l:"Ejecutado",  v:D(totalEjec),    c:totalEjec>totalPresup?"#EF4444":"#60A5FA"},
+            {l:"Balance",    v:D(Math.abs(balanceFijo)),c:balanceFijo>=0?"#22C55E":"#EF4444"},
           ].map((k,i)=>(
             <div key={i} style={{background:T.bg,borderRadius:10,padding:"8px 6px",textAlign:"center"}}>
               <Lbl>{k.l}</Lbl>
@@ -356,47 +371,185 @@ export default function App() {
 
       <div style={{padding:16}}>
 
-        {/* ══ SOBRES ════════════════════════════════════════════════ */}
-        {tab==="sobres"&&(
+        {/* ══ RUBROS (vista principal) ══════════════════════════════ */}
+        {tab==="rubros"&&(
           <div>
-            {data.fuentes.map(fuente=>{
-              const sf=sobreExt.filter(s=>s.fuente===fuente.id);
-              if(!sf.length)return null;
-              const ing=fuente.monto+fuente.credito;
-              const pres=sf.reduce((a,s)=>a+s.monto,0);
-              const ejec=sf.reduce((a,s)=>a+s.ejecutado,0);
+            {rubros.map(rubro=>{
+              const abierto=catOpen[rubro.id];
+              const p=pct(rubro.ejec,rubro.presup);
+              const barColor=p>=100?"#EF4444":p>=80?"#F97316":rubro.color;
+              const varianzaPos=rubro.varianza>=0;
+
               return(
-                <div key={fuente.id} style={{marginBottom:20}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:fuente.color+"15",borderRadius:10,border:`1px solid ${fuente.color}33`,marginBottom:10}}>
-                    <div>
-                      <span style={{fontWeight:700,color:fuente.color,fontSize:14}}>{fuente.nombre}</span>
-                      {fuente.credito>0&&<span style={{fontSize:10,color:T.muted,marginLeft:8}}>+crédito {D(fuente.credito)}</span>}
+                <div key={rubro.id} style={{marginBottom:10}}>
+                  {/* Header categoría */}
+                  <div onClick={()=>toggleCat(rubro.id)} style={{
+                    background:T.surf,border:`1px solid ${abierto?rubro.color:T.bord}`,
+                    borderRadius:14,padding:"14px 16px",cursor:"pointer",
+                    borderLeft:`4px solid ${rubro.color}`,
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <span style={{fontSize:22}}>{rubro.icon}</span>
+                        <div>
+                          <div style={{fontSize:15,fontWeight:700}}>{rubro.label}</div>
+                          <div style={{fontSize:11,color:T.muted}}>{rubro.sobres.length} sub-rubro{rubro.sobres.length!==1?"s":""}</div>
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontFamily:"monospace",fontSize:16,fontWeight:700,color:p>=100?"#EF4444":rubro.color}}>
+                          {D(rubro.ejec)}
+                        </div>
+                        <div style={{fontSize:11,color:T.muted}}>de {D(rubro.presup)}</div>
+                      </div>
                     </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:fuente.color}}>{D(ing)}</div>
-                      <div style={{fontSize:10,color:T.muted}}>ejec {D(ejec)} · pres {D(pres)}</div>
+
+                    {/* Barra doble: presup vs ejec */}
+                    <div style={{position:"relative",height:8,marginBottom:6}}>
+                      <div style={{position:"absolute",inset:0,background:T.sub,borderRadius:99}}/>
+                      <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${p}%`,background:barColor,borderRadius:99,transition:"width .4s"}}/>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:10}}>
+                      <span style={{color:T.muted}}>{p.toFixed(0)}% ejecutado · {pct(rubro.presup,totalPresup).toFixed(0)}% del total</span>
+                      <span style={{color:varianzaPos?"#22C55E":"#EF4444",fontWeight:600}}>
+                        {varianzaPos?"+":""}{D(rubro.varianza)} {varianzaPos?"disponible":"excedido"}
+                      </span>
                     </div>
                   </div>
-                  {sf.map(s=>(
-                    <SobreCard key={s.id} sobre={s} fuente={fuente}
-                      gastosList={s.gastos}
-                      tarjeta={getTarjeta(s.tarjeta)}
-                      onRegistrar={setModalSobre}
-                      onEliminar={eliminarGasto}/>
-                  ))}
+
+                  {/* Sub-rubros expandidos */}
+                  {abierto&&(
+                    <div style={{marginTop:8,paddingLeft:8}}>
+                      {rubro.sobres.map(s=>(
+                        <SobreItem
+                          key={s.id} sobre={s}
+                          fuente={getFuente(s.fuente)}
+                          tarjeta={getTarj(s.tarjeta)}
+                          gastosList={s.gastos}
+                          onRegistrar={setModal}
+                          onEliminar={eliminarGasto}/>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* ══ CATEGORÍAS ════════════════════════════════════════════ */}
-        {tab==="cats"&&(
+        {/* ══ TARJETAS ══════════════════════════════════════════════ */}
+        {tab==="tarjetas"&&(
           <div>
-            {/* Resumen global */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <Card style={{padding:"14px 16px"}}>
+                <Lbl>Deuda total tarjetas</Lbl>
+                <div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:"#EF4444"}}>{D(totalDeuda)}</div>
+              </Card>
+              <Card style={{padding:"14px 16px"}}>
+                <Lbl>Cashback estimado</Lbl>
+                <div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:"#22C55E"}}>{D(totalCB)}</div>
+              </Card>
+            </div>
+
+            {data.tarjetas.map(t=>{
+              // Sobres afiliados a esta tarjeta
+              const sobresT=data.sobres.filter(s=>s.tarjeta===t.id);
+              const gastosT=gastos.filter(g=>g.tarjeta===t.id);
+              const totalPres=sobresT.reduce((a,s)=>a+s.monto,0);
+              const totalCarg=gastosT.reduce((a,g)=>a+Number(g.monto),0);
+              const p=pct(totalCarg,totalPres);
+
+              return(
+                <Card key={t.id} style={{marginBottom:10}} accent={t.color}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,alignItems:"flex-start"}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:15,color:t.color}}>{t.nombre}</div>
+                      {t.cashback>0&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>{(t.cashback*100).toFixed(0)}% cashback · {D(t.saldo*t.cashback)} est.</div>}
+                    </div>
+                    {t.saldo===0
+                      ?<Chip color="#22C55E">Liquidada ✅</Chip>
+                      :<Chip color={t.color}>{D(t.saldo)} deuda</Chip>
+                    }
+                  </div>
+
+                  {/* Sobres afiliados */}
+                  {sobresT.length>0&&(
+                    <div style={{background:T.bg,borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+                      <Lbl>Rubros afiliados a esta tarjeta</Lbl>
+                      {sobresT.map(s=>{
+                        const cat=CATS[s.categoria];
+                        const ejec=gastos.filter(g=>g.sobre_id===s.id).reduce((a,g)=>a+Number(g.monto),0);
+                        return(
+                          <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${T.bord}`}}>
+                            <span style={{fontSize:12}}>{cat?.icon} {s.concepto}</span>
+                            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                              <span style={{fontFamily:"monospace",fontSize:11,color:T.muted}}>{D(s.monto)}</span>
+                              {ejec>0&&<span style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#EF4444"}}>{D(ejec)}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:10}}>
+                        {[
+                          {l:"Presupuestado",v:D(totalPres),c:t.color},
+                          {l:"Cargado (real)",v:D(totalCarg),c:"#EF4444"},
+                          {l:"Disponible",v:D(totalPres-totalCarg),c:totalPres-totalCarg>=0?"#22C55E":"#EF4444"},
+                        ].map((x,i)=>(
+                          <div key={i} style={{textAlign:"center",padding:"6px 4px",background:T.surf,borderRadius:8}}>
+                            <Lbl>{x.l}</Lbl>
+                            <div style={{fontFamily:"monospace",fontSize:11,fontWeight:700,color:x.c}}>{x.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {totalPres>0&&<div style={{marginTop:8}}><Bar v={totalCarg} max={totalPres} color={p>=100?"#EF4444":t.color} h={5}/></div>}
+                    </div>
+                  )}
+
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <Lbl>Saldo actual</Lbl>
+                      <input type="number" defaultValue={t.saldo} key={`s${t.id}${t.saldo}`}
+                        onBlur={e=>{const c=JSON.parse(JSON.stringify(data));const tarj=c.tarjetas.find(x=>x.id===t.id);if(tarj){tarj.saldo=parseFloat(e.target.value)||0;guardar(c);}}}
+                        style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:"#EF4444",fontFamily:"monospace",fontSize:14,fontWeight:700}}/>
+                    </div>
+                    <div>
+                      <Lbl>Presupuesto mes</Lbl>
+                      <input type="number" defaultValue={t.presup} key={`p${t.id}`}
+                        onBlur={e=>{const c=JSON.parse(JSON.stringify(data));const tarj=c.tarjetas.find(x=>x.id===t.id);if(tarj){tarj.presup=parseFloat(e.target.value)||0;guardar(c);}}}
+                        style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:t.color,fontFamily:"monospace",fontSize:14,fontWeight:700}}/>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+
+            <Card accent="#6366F1">
+              <div style={{fontWeight:700,color:"#6366F1",marginBottom:10}}>Extracredito</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div>
+                  <Lbl>Saldo</Lbl>
+                  <input type="number" defaultValue={data.extracredito.saldo}
+                    onBlur={e=>{const c=JSON.parse(JSON.stringify(data));c.extracredito.saldo=parseFloat(e.target.value)||0;guardar(c);}}
+                    style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:"#EF4444",fontFamily:"monospace",fontSize:14}}/>
+                </div>
+                <div>
+                  <Lbl>Abono/mes</Lbl>
+                  <input type="number" defaultValue={data.extracredito.abono}
+                    onBlur={e=>{const c=JSON.parse(JSON.stringify(data));c.extracredito.abono=parseFloat(e.target.value)||0;guardar(c);}}
+                    style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:"#6366F1",fontFamily:"monospace",fontSize:14}}/>
+                </div>
+              </div>
+              <div style={{marginTop:8,fontSize:11,color:T.muted}}>~{Math.ceil(data.extracredito.saldo/Math.max(data.extracredito.abono,1))} meses restantes</div>
+            </Card>
+          </div>
+        )}
+
+        {/* ══ RESUMEN ═══════════════════════════════════════════════ */}
+        {tab==="resumen"&&(
+          <div>
             <Card style={{marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Balance general</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Ejecución global</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
                 {[
                   {l:"Presupuestado",v:D(totalPresup),c:"#F97316"},
                   {l:"Ejecutado",v:D(totalEjec),c:totalEjec>totalPresup?"#EF4444":"#60A5FA"},
@@ -415,198 +568,44 @@ export default function App() {
               </div>
             </Card>
 
-            {/* Cards por categoría */}
-            {porCat.map(cat=>{
-              const activa=catActiva===cat.id;
-              const varianza=cat.presup-cat.ejec;
-              const p=pct(cat.ejec,cat.presup);
-              const barColor=p>=100?"#EF4444":p>=80?"#F97316":cat.color;
-              return(
-                <div key={cat.id} style={{marginBottom:10}}>
-                  <div onClick={()=>setCatActiva(activa?null:cat.id)}
-                    style={{background:T.surf,border:`1px solid ${activa?cat.color:T.bord}`,borderRadius:14,padding:16,cursor:"pointer",borderLeft:`3px solid ${cat.color}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            {/* Tabla rubros */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Balance por rubro</div>
+              {rubros.map((r,i)=>{
+                const p=pct(r.ejec,r.presup);
+                const barColor=p>=100?"#EF4444":p>=80?"#F97316":r.color;
+                return(
+                  <div key={r.id} style={{marginBottom:14}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,alignItems:"center"}}>
                       <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <span style={{fontSize:18}}>{cat.icon}</span>
+                        <span style={{fontSize:16}}>{r.icon}</span>
                         <div>
-                          <div style={{fontSize:14,fontWeight:700}}>{cat.label}</div>
-                          <div style={{fontSize:10,color:T.muted}}>{cat.sobres.length} sobre{cat.sobres.length!==1?"s":""}</div>
+                          <div style={{fontSize:13,fontWeight:600}}>{r.label}</div>
+                          <div style={{fontSize:10,color:T.muted}}>{pct(r.presup,totalPresup).toFixed(0)}% del presupuesto</div>
                         </div>
                       </div>
                       <div style={{textAlign:"right"}}>
-                        <div style={{fontFamily:"monospace",fontSize:15,fontWeight:700,color:p>=100?"#EF4444":cat.color}}>
-                          {D(cat.ejec)}
+                        <div style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:p>=100?"#EF4444":r.color}}>{D(r.ejec)}</div>
+                        <div style={{fontSize:10,color:r.varianza>=0?"#22C55E":"#EF4444",fontWeight:600}}>
+                          {r.varianza>=0?"+":""}{D(r.varianza)}
                         </div>
-                        <div style={{fontSize:10,color:T.muted}}>de {D(cat.presup)}</div>
                       </div>
                     </div>
-                    {/* Doble barra pres vs ejec */}
-                    <div style={{position:"relative",height:8,marginBottom:6}}>
+                    {/* Barra con presup marcado */}
+                    <div style={{position:"relative",height:7}}>
                       <div style={{position:"absolute",inset:0,background:T.sub,borderRadius:99}}/>
-                      <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${pct(cat.presup,totalPresup)}%`,background:cat.color+"33",borderRadius:99}}/>
-                      <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${pct(cat.ejec,cat.presup>0?cat.presup:1)*pct(cat.presup,totalPresup)/100}%`,background:barColor,borderRadius:99}}/>
+                      <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${p}%`,background:barColor,borderRadius:99,transition:"width .4s"}}/>
                     </div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:10}}>
-                      <span style={{color:T.muted}}>{p.toFixed(0)}% ejecutado · {pct(cat.presup,totalPresup).toFixed(0)}% del presupuesto total</span>
-                      <span style={{color:varianza>=0?"#22C55E":"#EF4444",fontWeight:600}}>
-                        {varianza>=0?"+":""}{D(varianza)} disponible
-                      </span>
-                    </div>
+                    {i<rubros.length-1&&<div style={{height:1,background:T.bord,marginTop:10}}/>}
                   </div>
-
-                  {/* Detalle de sobres de esta categoría */}
-                  {activa&&(
-                    <div style={{marginTop:6,marginLeft:8}}>
-                      {cat.sobres.map(s=>{
-                        const fu=getFuente(s.fuente);
-                        const tarj=getTarjeta(s.tarjeta);
-                        const ejec=s.ejecutado||0;
-                        const disp=s.monto-ejec;
-                        return(
-                          <div key={s.id} style={{background:T.surf,border:`1px solid ${T.bord}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                              <div>
-                                <div style={{fontSize:13,fontWeight:600}}>{s.concepto}</div>
-                                <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                                  <Chip color={fu.color} sm>{fu.nombre}</Chip>
-                                  {tarj&&<Chip color={tarj.color} sm>💳 {tarj.nombre}</Chip>}
-                                </div>
-                              </div>
-                              <div style={{textAlign:"right"}}>
-                                <div style={{fontFamily:"monospace",fontSize:14,fontWeight:700,color:disp<0?"#EF4444":"#22C55E"}}>{D(Math.abs(disp))}</div>
-                                <div style={{fontSize:10,color:T.muted}}>{disp<0?"excedido":"disponible"}</div>
-                              </div>
-                            </div>
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-                              {[
-                                {l:"Presupuesto",v:D(s.monto),c:T.muted},
-                                {l:"Ejecutado",v:D(ejec),c:cat.color},
-                                {l:"Varianza",v:D(Math.abs(s.monto-ejec)),c:s.monto-ejec>=0?"#22C55E":"#EF4444"},
-                              ].map((x,i)=>(
-                                <div key={i} style={{background:T.bg,borderRadius:8,padding:"6px 8px",textAlign:"center"}}>
-                                  <Lbl>{x.l}</Lbl>
-                                  <div style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:x.c}}>{x.v}</div>
-                                </div>
-                              ))}
-                            </div>
-                            <Bar v={ejec} max={s.monto} color={pct(ejec,s.monto)>=100?"#EF4444":cat.color} h={5}/>
-                            {/* Gastos del sobre */}
-                            {s.gastos&&s.gastos.length>0&&(
-                              <div style={{marginTop:10,borderTop:`1px solid ${T.bord}`,paddingTop:8}}>
-                                {s.gastos.map(g=>(
-                                  <div key={g.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12}}>
-                                    <span style={{color:T.muted}}>{g.descripcion} · {new Date(g.fecha).toLocaleDateString("es-DO",{day:"numeric",month:"short"})}</span>
-                                    <span style={{fontFamily:"monospace",fontWeight:600,color:"#EF4444"}}>{D(Number(g.monto))}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <button onClick={()=>setModalSobre({...s,ejecutado:ejec})} style={{width:"100%",marginTop:10,background:fu.color+"22",border:`1px solid ${fu.color}44`,borderRadius:8,color:fu.color,padding:"8px",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                              + Registrar gasto
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                );
+              })}
+              <div style={{display:"flex",justifyContent:"space-between",paddingTop:12,fontWeight:700}}>
+                <span>TOTAL</span>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontFamily:"monospace",fontSize:14,color:"#F97316"}}>{D(totalPresup)}</div>
+                  <div style={{fontFamily:"monospace",fontSize:12,color:totalEjec>totalPresup?"#EF4444":"#22C55E"}}>{D(totalEjec)} ejec.</div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ══ TARJETAS ══════════════════════════════════════════════ */}
-        {tab==="tarjetas"&&(
-          <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <Card style={{padding:"14px 16px"}}>
-                <Lbl>Deuda total</Lbl>
-                <div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:"#EF4444"}}>{D(totalDeuda)}</div>
-              </Card>
-              <Card style={{padding:"14px 16px"}}>
-                <Lbl>Cashback estimado</Lbl>
-                <div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:"#22C55E"}}>{D(totalCB)}</div>
-              </Card>
-            </div>
-
-            {/* Sobres vinculados a cada tarjeta */}
-            {data.tarjetas.map(t=>{
-              const sobresT=data.sobres.filter(s=>s.tarjeta===t.id);
-              const gastosT=gastos.filter(g=>g.tarjeta===t.id);
-              const totalGastosT=gastosT.reduce((s,g)=>s+Number(g.monto),0);
-              return(
-                <Card key={t.id} style={{marginBottom:10}} accent={t.color}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,alignItems:"flex-start"}}>
-                    <div>
-                      <div style={{fontWeight:700,fontSize:14,color:t.color}}>{t.nombre}</div>
-                      {t.cashback>0&&<div style={{fontSize:11,color:T.muted}}>{(t.cashback*100).toFixed(0)}% cashback · {D(t.saldo*t.cashback)} est.</div>}
-                    </div>
-                    {t.saldo===0?<Chip color="#22C55E">Liquidada ✅</Chip>:<Chip color={t.color}>{D(t.saldo)}</Chip>}
-                  </div>
-
-                  {/* Sobres afiliados */}
-                  {sobresT.length>0&&(
-                    <div style={{marginBottom:10,padding:"8px 10px",background:T.bg,borderRadius:10}}>
-                      <Lbl>Sobres afiliados</Lbl>
-                      {sobresT.map(s=>{
-                        const cat=CATS[s.categoria];
-                        return(
-                          <div key={s.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0"}}>
-                            <span style={{color:T.muted}}>{cat?.icon} {s.concepto}</span>
-                            <span style={{fontFamily:"monospace",fontWeight:600,color:t.color}}>{D(s.monto)}</span>
-                          </div>
-                        );
-                      })}
-                      <div style={{borderTop:`1px solid ${T.bord}`,marginTop:6,paddingTop:6,display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700}}>
-                        <span>Total presupuestado</span>
-                        <span style={{fontFamily:"monospace",color:t.color}}>{D(sobresT.reduce((a,s)=>a+s.monto,0))}</span>
-                      </div>
-                      {totalGastosT>0&&(
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,marginTop:4}}>
-                          <span>Total cargado (real)</span>
-                          <span style={{fontFamily:"monospace",color:"#EF4444"}}>{D(totalGastosT)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <div>
-                      <Lbl>Saldo actual</Lbl>
-                      <input type="number" defaultValue={t.saldo} key={`s-${t.id}-${t.saldo}`}
-                        onBlur={e=>updTarjeta(t.id,"saldo",parseFloat(e.target.value)||0)}
-                        style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:"#EF4444",fontFamily:"monospace",fontSize:14,fontWeight:700}}/>
-                    </div>
-                    <div>
-                      <Lbl>Presupuesto mes</Lbl>
-                      <input type="number" defaultValue={t.presup} key={`p-${t.id}`}
-                        onBlur={e=>updTarjeta(t.id,"presup",parseFloat(e.target.value)||0)}
-                        style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:t.color,fontFamily:"monospace",fontSize:14,fontWeight:700}}/>
-                    </div>
-                  </div>
-                  {t.saldo>0&&<div style={{marginTop:10}}><Bar v={t.saldo} max={t.saldo+t.presup} color={t.color} h={5}/></div>}
-                </Card>
-              );
-            })}
-
-            <Card accent="#6366F1">
-              <div style={{fontWeight:700,color:"#6366F1",marginBottom:10}}>Extracredito</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                <div>
-                  <Lbl>Saldo</Lbl>
-                  <input type="number" defaultValue={data.extracredito.saldo}
-                    onBlur={e=>{const c=JSON.parse(JSON.stringify(data));c.extracredito.saldo=parseFloat(e.target.value)||0;guardarConfig(c);}}
-                    style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:"#EF4444",fontFamily:"monospace",fontSize:14}}/>
-                </div>
-                <div>
-                  <Lbl>Abono/mes</Lbl>
-                  <input type="number" defaultValue={data.extracredito.abono}
-                    onBlur={e=>{const c=JSON.parse(JSON.stringify(data));c.extracredito.abono=parseFloat(e.target.value)||0;guardarConfig(c);}}
-                    style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"7px 10px",color:"#6366F1",fontFamily:"monospace",fontSize:14}}/>
-                </div>
-              </div>
-              <div style={{marginTop:8,fontSize:11,color:T.muted}}>
-                ~{Math.ceil(data.extracredito.saldo/Math.max(data.extracredito.abono,1))} meses restantes
               </div>
             </Card>
           </div>
@@ -621,47 +620,49 @@ export default function App() {
                 <div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.bord}`}}>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <div style={{width:10,height:10,borderRadius:99,background:f.color}}/>
-                    <span style={{fontSize:13,fontWeight:500}}>{f.nombre}</span>
+                    <span style={{fontSize:13}}>{f.nombre}</span>
                     {f.id==="fs"&&<Chip color={f.color} sm>irregular</Chip>}
                   </div>
                   <input type="number" defaultValue={f.monto}
-                    onBlur={e=>updFuente(f.id,"monto",parseFloat(e.target.value)||0)}
+                    onBlur={e=>{const c=JSON.parse(JSON.stringify(data));const fu=c.fuentes.find(x=>x.id===f.id);if(fu){fu.monto=parseFloat(e.target.value)||0;guardar(c);}}}
                     style={{width:120,background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"6px 10px",color:f.color,fontFamily:"monospace",fontSize:13,textAlign:"right"}}/>
                 </div>
               ))}
             </Card>
 
             <Card style={{marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Sobres y montos</div>
-              {data.sobres.map(s=>{
-                const cat=CATS[s.categoria];
-                const fu=data.fuentes.find(f=>f.id===s.fuente);
-                const tarj=getTarjeta(s.tarjeta);
-                return(
-                  <div key={s.id} style={{padding:"8px 0",borderBottom:`1px solid ${T.bord}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{fontSize:12,fontWeight:500}}>{s.concepto}</div>
-                        <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                          <Chip color={fu?.color||"#888"} sm>{fu?.nombre}</Chip>
-                          <Chip color={cat?.color||"#888"} sm>{cat?.icon} {cat?.label}</Chip>
-                          {tarj&&<Chip color={tarj.color} sm>💳 {tarj.nombre}</Chip>}
+              <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Montos por rubro</div>
+              {rubros.map(r=>(
+                <div key={r.id}>
+                  <div style={{fontSize:12,fontWeight:700,color:r.color,padding:"8px 0",borderBottom:`1px solid ${T.bord}`}}>{r.icon} {r.label}</div>
+                  {r.sobres.map(s=>{
+                    const fu=getFuente(s.fuente);
+                    const tarj=getTarj(s.tarjeta);
+                    return(
+                      <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0 7px 12px",borderBottom:`1px solid ${T.bord}`}}>
+                        <div>
+                          <div style={{fontSize:12}}>{s.concepto}</div>
+                          <div style={{display:"flex",gap:4,marginTop:2}}>
+                            <Chip color={fu.color} sm>{fu.nombre}</Chip>
+                            {tarj&&<Chip color={tarj.color} sm>💳 {tarj.nombre.split(" ")[0]}</Chip>}
+                            {!tarj&&<Chip color={T.muted} sm>💵 Cash</Chip>}
+                          </div>
                         </div>
+                        <input type="number" defaultValue={s.monto}
+                          onBlur={e=>{const c=JSON.parse(JSON.stringify(data));const sob=c.sobres.find(x=>x.id===s.id);if(sob){sob.monto=parseFloat(e.target.value)||0;guardar(c);}}}
+                          style={{width:100,background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"5px 8px",color:fu.color,fontFamily:"monospace",fontSize:12,textAlign:"right"}}/>
                       </div>
-                      <input type="number" defaultValue={s.monto}
-                        onBlur={e=>updSobre(s.id,"monto",parseFloat(e.target.value)||0)}
-                        style={{width:100,background:T.bg,border:`1px solid ${T.bord}`,borderRadius:8,padding:"5px 8px",color:fu?.color||T.text,fontFamily:"monospace",fontSize:12,textAlign:"right"}}/>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ))}
             </Card>
 
             <Card>
               <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>General</div>
               <div style={{marginBottom:12}}>
                 <Lbl>Mes actual</Lbl>
-                <select value={data.mes} onChange={e=>{const c=JSON.parse(JSON.stringify(data));c.mes=e.target.value;guardarConfig(c);}}
+                <select value={data.mes} onChange={e=>{const c=JSON.parse(JSON.stringify(data));c.mes=e.target.value;guardar(c);}}
                   style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:10,padding:"9px 12px",color:T.text,fontSize:13}}>
                   {MESES_L.map(m=><option key={m} value={m}>{m}</option>)}
                 </select>
@@ -669,7 +670,7 @@ export default function App() {
               <div>
                 <Lbl>Tipo de cambio DOP/USD</Lbl>
                 <input type="number" defaultValue={data.tc}
-                  onBlur={e=>{const c=JSON.parse(JSON.stringify(data));c.tc=parseFloat(e.target.value)||61.4;guardarConfig(c);}}
+                  onBlur={e=>{const c=JSON.parse(JSON.stringify(data));c.tc=parseFloat(e.target.value)||61.4;guardar(c);}}
                   style={{width:"100%",background:T.bg,border:`1px solid ${T.bord}`,borderRadius:10,padding:"9px 12px",color:"#F59E0B",fontFamily:"monospace",fontSize:14}}/>
               </div>
             </Card>
@@ -677,13 +678,21 @@ export default function App() {
         )}
       </div>
 
-      {modalSobre&&(
+      {/* FAB */}
+      <div style={{position:"fixed",bottom:28,right:20,zIndex:90}}>
+        <button onClick={()=>{const s=sobreExt.find(s=>s.monto>s.ejecutado);if(s)setModal({...s});}}
+          style={{background:T.text,border:"none",borderRadius:99,width:60,height:60,fontSize:26,cursor:"pointer",boxShadow:"0 4px 24px #ffffff33",display:"flex",alignItems:"center",justifyContent:"center",color:T.bg,fontWeight:700}}>
+          +
+        </button>
+      </div>
+
+      {modal&&(
         <ModalGasto
-          sobre={modalSobre}
-          fuente={getFuente(modalSobre.fuente)}
-          tarjetaNombre={getTarjeta(modalSobre.tarjeta)?.nombre}
+          sobre={modal}
+          fuente={getFuente(modal.fuente)}
+          tarjeta={getTarj(modal.tarjeta)}
           onSave={registrarGasto}
-          onClose={()=>setModalSobre(null)}/>
+          onClose={()=>setModal(null)}/>
       )}
     </div>
   );
