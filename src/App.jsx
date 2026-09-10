@@ -27,32 +27,26 @@ const INIT = {
   ],
   // ── SOBRES — agrupados por RUBRO/CATEGORÍA ──────────────────────
   sobres: [
-    // VIVIENDA
-    {id:"s_hip", fuente:"eted1",concepto:"Apartamento (hipoteca)",   categoria:"vivienda",    tarjeta:null,      monto:170465},
-    {id:"s_mant",fuente:"cne",  concepto:"Mantenimiento apto",       categoria:"vivienda",    tarjeta:null,      monto:17045},
-    // EDUCACIÓN
-    {id:"s_col", fuente:"eted1",concepto:"Colegio",                  categoria:"educacion",   tarjeta:"bravo",   monto:27500},
-    {id:"s_val", fuente:"eted2",concepto:"Valentina",                categoria:"educacion",   tarjeta:null,      monto:6000},
-    {id:"s_lum", fuente:"eted2",concepto:"LUMURI Recrea (tanda)",    categoria:"educacion",   tarjeta:"bravo",   monto:10000},
-    // ALIMENTACIÓN
-    {id:"s_a1",  fuente:"cne",  concepto:"Alimentación BHD Premia",  categoria:"alimentacion",tarjeta:"visapremia",monto:13500},
-    {id:"s_a2",  fuente:"eted2",concepto:"Alimentación BHD Premia",  categoria:"alimentacion",tarjeta:"visapremia",monto:8000},
-    {id:"s_a3",  fuente:"eted2",concepto:"Alimentación BSC Bravo",   categoria:"alimentacion",tarjeta:"bravo",   monto:18500},
-    // TRANSPORTE
-    {id:"s_uber",fuente:"eted1",concepto:"Uber",                     categoria:"transporte",  tarjeta:"bravo",   monto:4000},
-    // SOCIAL
-    {id:"s_soc", fuente:"eted1",concepto:"Social",                   categoria:"social",      tarjeta:"bravo",   monto:8000},
-    // SALUD
-    {id:"s_sal", fuente:"eted1",concepto:"Salud",                    categoria:"salud",       tarjeta:"banres",  monto:10000},
-    {id:"s_yeli",fuente:"eted2",concepto:"Yeli",                     categoria:"salud",       tarjeta:null,      monto:17000},
-    // SERVICIOS
-    {id:"s_elec",fuente:"eted2",concepto:"Electricidad",             categoria:"servicios",   tarjeta:"edesur",  monto:12000},
-    // DEUDA / CRÉDITO
-    {id:"s_ext", fuente:"eted1",concepto:"Extracredito",             categoria:"deuda",       tarjeta:"banres",  monto:2500},
-    // AHORRO
-    {id:"s_res", fuente:"eted1",concepto:"Reservas",                 categoria:"ahorro",      tarjeta:"banres",  monto:10000},
-    // IMPREVISTOS
-    {id:"s_imp", fuente:"eted1",concepto:"Imprevistos",              categoria:"imprevistos", tarjeta:null,      monto:32600},
+    // ── 💵 EFECTIVO / TRANSFERENCIA ─────────────────────────────
+    {id:"s_hip", fuente:"eted1",concepto:"Apartamento (hipoteca)",   categoria:"vivienda",    tarjeta:null,  monto:170465},
+    {id:"s_mant",fuente:"cne",  concepto:"Mantenimiento apto",       categoria:"vivienda",    tarjeta:null,  monto:17045},
+    {id:"s_yeli",fuente:"eted2",concepto:"Yeli",                     categoria:"salud",       tarjeta:null,  monto:17000},
+    {id:"s_val", fuente:"eted2",concepto:"Valentina",                categoria:"educacion",   tarjeta:null,  monto:6000},
+    {id:"s_imp", fuente:"eted1",concepto:"Imprevistos",              categoria:"imprevistos", tarjeta:null,  monto:32600},
+    // ── 💳 BRAVO BSC VISA ───────────────────────────────────────
+    {id:"s_col", fuente:"eted1",concepto:"Colegio",                  categoria:"educacion",   tarjeta:"bravo",monto:27500},
+    {id:"s_a3",  fuente:"eted2",concepto:"Alimentación",             categoria:"alimentacion",tarjeta:"bravo",monto:18500},
+    {id:"s_lum", fuente:"eted2",concepto:"LUMURI Recrea (tanda)",    categoria:"educacion",   tarjeta:"bravo",monto:10000},
+    {id:"s_uber",fuente:"eted1",concepto:"Uber",                     categoria:"transporte",  tarjeta:"bravo",monto:4000},
+    {id:"s_soc", fuente:"eted1",concepto:"Social",                   categoria:"social",      tarjeta:"bravo",monto:8000},
+    // ── 💳 BHD VISA PREMIA ──────────────────────────────────────
+    {id:"s_alim",fuente:"cne",  concepto:"Alimentación",             categoria:"alimentacion",tarjeta:"visapremia",monto:21500},
+    // ── 💳 BANRESERVAS MC ───────────────────────────────────────
+    {id:"s_sal", fuente:"eted1",concepto:"Salud",                    categoria:"salud",       tarjeta:"banres",monto:10000},
+    {id:"s_ext", fuente:"eted1",concepto:"Extracredito",             categoria:"deuda",       tarjeta:"banres",monto:2500},
+    {id:"s_res", fuente:"eted1",concepto:"Reservas",                 categoria:"ahorro",      tarjeta:"banres",monto:10000},
+    // ── 💳 EDESUR ───────────────────────────────────────────────
+    {id:"s_elec",fuente:"eted2",concepto:"Electricidad",             categoria:"servicios",   tarjeta:"edesur",monto:12000},
   ],
   tarjetas: [
     {id:"bravo",     nombre:"Bravo BSC Visa",     color:"#6366F1",saldo:45323,presup:68000,cashback:0.07},
